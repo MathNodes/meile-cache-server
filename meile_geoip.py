@@ -4,13 +4,15 @@ import json
 import geoip2.database
 import scrtsxx
 
+charset ='utf8mb4'
+
 def connDB():
     db = pymysql.connect(host=scrtsxx.HOST,
                          port=scrtsxx.PORT,
                          user=scrtsxx.USERNAME,
                          passwd=scrtsxx.PASSWORD,
                          db=scrtsxx.DB,
-                         charset='utf8mb4',
+                         charset=charset,
                          cursorclass=pymysql.cursors.DictCursor)
     return db
 
