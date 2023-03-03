@@ -7,6 +7,8 @@ from time import sleep
 
 API = "https://api.sentinel.mathnodes.com"
 GB  = 1000000000
+QUOTAID = 196212
+
 
 def connDB():
     db = pymysql.connect(host=scrtsxx.HOST,
@@ -27,16 +29,29 @@ def GetSubscriptionTable(db):
     
     return c.fetchall()
 
+def GetSubIDLimit(db):
+    
+    query = "select * from subscriptions where sub_date > DATE_SUB(DATE(NOW()), INTERVAL 180 DAY) ORDER BY ID ASC LIMIT 1;"
+    c = db.cursor()
+    c.execute(query)
+    
+    return c.fetchone()
 
-def GetQuotaFromAPI(db, s):
+def GetQuotaFromAPI(db, s, idlimit):
+    
+    if idlimit is not None:
+        QUOTAID = int(idlimit['id'])
     
     for row in s:
+        if int(row['id']) < QUOTAID:
+            continue
         endpoint = "/subscriptions/%s/quotas/%s" % (row['id'], row['owner'])
         try: 
             r = requests.get(API + endpoint, timeout=15)
             subJSON = r.json()
             sleep(2)
-        except ReadTimeout:
+        except Exception as e:
+            print(str(e))
             continue
         
         try:
@@ -69,5 +84,7 @@ def GetQuotaFromAPI(db, s):
 if __name__ == "__main__":
     db = connDB()
     subTable = GetSubscriptionTable(db)
-    GetQuotaFromAPI(db, subTable)
-    
+    subIDLimit = GetSubIDLimit(db)
+    print(subIDLimit)
+    answer = input("Press Enter to continue: ")
+    GetQuotaFromAPI(db, subTable, subIDLimit)
