@@ -49,55 +49,51 @@ def GetSubscriptionAndPopulateDB(db):
     while k < len(page_range):
         APIURL = "https://api.sentinel.mathnodes.com/subscriptions?page=%s" % page_range[k]
         print("Getting page: %s" % page_range[k])
-        k += 1
         try: 
             r = requests.get(APIURL, timeout=60)
             subJSON = r.json()
             sleep(2)
         except ReadTimeout:
             print("ERROR: ReadTimeout... Retrying...")
-            k = k - 1
             continue
-        if subJSON['result']['subscriptions']:
-            for sub in subJSON['result']['subscriptions']:
-                try: 
-                    ID         = sub['id']
-                    subscriber = sub['owner']
-                    node       = sub['node']
-                    deposit    = sub['price']['amount']
-                    denom      = sub['price']['denom']
-                    sub_date   = sub['status_at']
-                except Exception as e:
-                    print(str(e))
-                    continue
-                
-                
-                #print("%s,%s,%s,%s,%s" % (ID,subscriber,node,price,sub_date))
-                
-                iquery = '''
-                INSERT IGNORE INTO subscriptions (id,owner,node,deposit,denomination,sub_date)
-                VALUES
-                (%d,"%s","%s",%d,"%s","%s")
-                ''' % (int(ID),subscriber,node,int(deposit),denom,sub_date)
-                
-                InsertIntoSubTable(iquery,db)
-        else:
-            print("Found the end. Saving and exiting...", end='')
-            sleep(2)
-            # Backoff by 2. Re-reading one page is fine as we ignore any inserts.
-            # Plus the last page we successfully read may not be completed and contain more 
-            # subscription data on the next run.
-            CONFIG.set('subscriptions', 'startpage', str(page_range[k-2]))
-            FILE = open(CONFFILE, 'w')
-            CONFIG.write(FILE)
-            FILE.close()
-            print("Done.")
-            break
-            
-            
-            
-        
-
+        try:
+            if subJSON['result']['subscriptions']:
+                for sub in subJSON['result']['subscriptions']:
+                    try: 
+                        ID         = sub['id']
+                        subscriber = sub['owner']
+                        node       = sub['node']
+                        deposit    = sub['deposit']['amount']
+                        price      = sub['price']['amount']
+                        denom      = sub['price']['denom']
+                        sub_date   = sub['status_at']
+                    except Exception as e:
+                        print(str(e))
+                        continue
+                    
+                    
+                    #print("%s,%s,%s,%s,%s" % (ID,subscriber,node,price,sub_date))
+                    
+                    iquery = '''
+                    INSERT IGNORE INTO subscriptions (id,owner,node,price,deposit,denomination,sub_date)
+                    VALUES
+                    (%d,"%s","%s",%d,%d,"%s","%s")
+                    ''' % (int(ID),subscriber,node,int(price),int(deposit),denom,sub_date)
+                    
+                    InsertIntoSubTable(iquery,db)
+                k += 1
+            else:
+                print("Found the end. Saving and exiting...", end='')
+                sleep(2)
+                CONFIG.set('subscriptions', 'startpage', str(page_range[k-1]))
+                FILE = open(CONFFILE, 'w')
+                CONFIG.write(FILE)
+                FILE.close()
+                print("Done.")
+                break
+        except KeyError:
+            print("Key Error... Retrying....")
+            continue
 
 if __name__ == "__main__":
     read_configuration(CONFFILE)
