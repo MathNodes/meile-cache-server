@@ -85,7 +85,7 @@ def GetSubscriptionAndPopulateDB(db):
             else:
                 print("Found the end. Saving and exiting...", end='')
                 sleep(2)
-                CONFIG.set('subscriptions', 'startpage', str(page_range[k-1]))
+                CONFIG.set('subscriptions', 'startpage', str(STARTPAGE + k - 1))
                 FILE = open(CONFFILE, 'w')
                 CONFIG.write(FILE)
                 FILE.close()
