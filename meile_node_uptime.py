@@ -34,22 +34,37 @@ class UpdateNodeUptime():
     def get_remote_url_of_node(self, db, NodeData):
         NodeRemoteURL = {'address' : [], 'url' : []}
         
+        c = db.cursor()
+        
         for n in NodeData:
             address = n['node_address']
             endpoint = APIURL + '/nodes/' + address
-            
-            try: 
-                r = requests.get(endpoint)
-                remote_url = r.json()['result']['node']['remote_url']
-                NodeRemoteURL['address'].append(n['node_address'])
-                NodeRemoteURL['url'].append(remote_url)
-            except Exception as e:
-                print(str(e))
-                continue
-        
-        #print(NodeRemoteURL)
+                
+            # Retrieve remote_url from the table for nodes that have it stored
+            query = f"SELECT remote_url FROM node_uptime WHERE node_address = '{address}';"
+            c.execute(query)
+            result = c.fetchone()
+
+            if result['remote_url'] == '':        
+                endpoint = APIURL + '/nodes/' + address
+                remote_url = result['remote_url']
+                print(f"Getting remote_url of: {address}", end=":")
+                
+                try:
+                    r = requests.get(endpoint)
+                    remote_url = r.json()['result']['node']['remote_url']
+                except Exception as e:
+                    print(str(e))
+                    continue
+                print(f"{remote_url}")
+            else:
+                remote_url = result['remote_url']
+                
+            NodeRemoteURL['address'].append(n['node_address'])
+            NodeRemoteURL['url'].append(remote_url)
         
         return NodeRemoteURL
+
 
    
     def check_uptime(self, NodeRemoteURLs):
