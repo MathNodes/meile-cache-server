@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 from subprocess import Popen, PIPE, STDOUT
 import pymysql
 import scrtsxx
@@ -6,7 +8,9 @@ from urllib3.exceptions import InsecureRequestWarning
 import requests
 import warnings
 
-NodesInfoKeys = ["Moniker","Address","Provider","Price","Country","Speed","Latency","Peers","Handshake","Version","Status"]
+VERSION = 2.0
+
+NodesInfoKeys = ["Moniker","Address","Price","Hourly Price", "Country","Speed","Latency","Peers","Handshake","Type","Version","Status"]
 APIURL        = "https://api.sentinel.mathnodes.com"
 class UpdateNodeLocations():
     sentinelcli = "/home/sentinel/sentinelcli"
@@ -22,22 +26,22 @@ class UpdateNodeLocations():
         
         
         for line in proc.stdout.readlines():
-            #print(line)
+            line = str(line.decode('utf-8'))
             if k < 4:  
                 k += 1 
                 continue
-            if k >=4 and '+-------+' in str(line.decode('utf-8')):
+            if k >=4 and '+-------+' in str(line):
                 break
-            elif "freak12techno" in str(line.decode('utf-8')):
+            elif "freak12techno" in str(line):
                 ninfos = []
-                ninfos.append(str(line.decode('utf-8')).split('|')[1])
-                for ninf in str(line.decode('utf-8')).split('|')[3:-1]:
+                ninfos.append(str(line).split('|')[1])
+                for ninf in str(line).split('|')[3:-1]:
                     ninfos.append(ninf)
                 AllNodesInfo.append(dict(zip(NodesInfoKeys, ninfos)))
-            elif "Testserver" in str(line.decode('utf-8')):
+            elif "Testserver" in str(line):
                 continue
             else: 
-                ninfos = str(line.decode('utf-8')).split('|')[1:-1]
+                ninfos = str(line).split('|')[1:-1]
                 if ninfos[0].isspace():
                     continue
                 elif ninfos[1].isspace():
@@ -62,16 +66,16 @@ class UpdateNodeLocations():
 
 
         for n in nodes:
-            endpoint = "/nodes/" + n
+            endpoint = "/sentinel/nodes/" + n
             #print(APIURL + endpoint)
             try:
                 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
                 r = requests.get(APIURL + endpoint)
-                remote_url = r.json()['result']['node']['remote_url']
+                remote_url = r.json()['node']['remote_url']
                 r = requests.get(remote_url + "/status", verify=False)
         
-                NodeInfoJSON       = r.json() 
-                NodeLoc[n] = NodeInfoJSON['result']['location']['city']
+                NodeInfoJSON  = r.json() 
+                NodeLoc[n]    = NodeInfoJSON['result']['location']['city']
             except Exception as e:
                 print(str(e))
                 
@@ -105,9 +109,9 @@ if __name__ == "__main__":
     start = time.time()
     NodeLoc = UpdateNodeLocations()
     db = NodeLoc.connDB()
-    Nodes = NodeLoc.get_nodes("15s")
+    Nodes = NodeLoc.get_nodes("17s")
     elapsed = (time.time() - start)
-    print("Node data took: %.3fs" % elapsed)
+    print("Node data took: %.3fs, there are %d nodes" % (elapsed, len(Nodes)))
     start = time.time()
     Locations = NodeLoc.get_city_of_node(Nodes)
     #print(Locations)
