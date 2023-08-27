@@ -75,7 +75,7 @@ class UpdateNodeScoreAPI():
         for n in ns_table:
             for node in uptime_table:
                 if n['node_address'] == node['node_address']:
-                    if node['remote_url'] != '':
+                    if node['remote_url']:
                         ip = node['remote_url'].split('//')[-1].split(':')[0]
                         NodeDict['node_address'] = n['node_address']
                         NodeDict['ip'] = ip

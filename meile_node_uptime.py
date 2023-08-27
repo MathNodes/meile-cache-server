@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 import pymysql
 import scrtsxx
 import requests
@@ -5,7 +7,7 @@ import socket
 from contextlib import closing
 from timeit import default_timer as timer
 
-
+VERSION = 2.0
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 class UpdateNodeUptime():
@@ -34,25 +36,34 @@ class UpdateNodeUptime():
     def get_remote_url_of_node(self, db, NodeData):
         NodeRemoteURL = {'address' : [], 'url' : []}
         
+        # Retrieve nodes with empty remote_url from the table
+        #query = "SELECT * FROM node_uptime WHERE remote_url = '';"
         c = db.cursor()
-        
+        #c.execute(query)
+        #nodes_without_remote_url = c.fetchall()
+        #print(nodes_without_remote_url)
         for n in NodeData:
             address = n['node_address']
-            endpoint = APIURL + '/nodes/' + address
-                
+            endpoint = APIURL + '/sentinel/nodes/' + address
+            
+            # Check if the node already has a remote_url in the table
+            #if any(node['node_address'] == address for node in nodes_without_remote_url):
+            #    continue
+            
             # Retrieve remote_url from the table for nodes that have it stored
             query = f"SELECT remote_url FROM node_uptime WHERE node_address = '{address}';"
             c.execute(query)
             result = c.fetchone()
-
-            if result['remote_url'] == '':        
+            print(result['remote_url'])
+            if not result['remote_url']:
+                
                 endpoint = APIURL + '/nodes/' + address
                 remote_url = result['remote_url']
                 print(f"Getting remote_url of: {address}", end=":")
                 
                 try:
                     r = requests.get(endpoint)
-                    remote_url = r.json()['result']['node']['remote_url']
+                    remote_url = r.json()['node']['remote_url']
                 except Exception as e:
                     print(str(e))
                     continue
@@ -63,8 +74,9 @@ class UpdateNodeUptime():
             NodeRemoteURL['address'].append(n['node_address'])
             NodeRemoteURL['url'].append(remote_url)
         
+        #print(NodeRemoteURL)
+        
         return NodeRemoteURL
-
 
    
     def check_uptime(self, NodeRemoteURLs):
@@ -75,7 +87,7 @@ class UpdateNodeUptime():
         
         for n in NodeRemoteURLs['address']:
             url = NodeRemoteURLs['url'][k]
-
+            
             hp = url.split('//')[-1]
             host, port = hp.split(":")
             #print(f"host: {host}, port: {port}")
@@ -164,7 +176,7 @@ if __name__ == "__main__":
     print("It took %ss to update the node_uptime table" % (time4))
     
     total_time = time1 + time2 + time3 + time4
-    print("Total Elapsed time: %s" % total_time)
+    print("Total Elapsed time: %ss" % total_time)
     
     
     
