@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 from subprocess import Popen, PIPE, STDOUT
 import pymysql
 import scrtsxx
@@ -7,7 +9,11 @@ import requests
 import warnings
 import ipaddress
 import socket
+from timeit import default_timer as timer
 
+
+
+VERSION = 2.0
 
 API = 'https://api.sentinel.mathnodes.com'
 API_KEY = scrtsxx.IP_DATA_API_KEY
@@ -45,6 +51,13 @@ class UpdateNodeScoreAPI():
         return c.fetchall()
     
     
+    def getNodeUptimeTable(self, db):
+        query = "SELECT * from node_uptime;"
+        
+        c = db.cursor()
+        c.execute(query)
+        return c.fetchall()
+    
     def parseNodeScoreTable(self, db, ns_table):
         
         remainingNodeScores = []
@@ -55,31 +68,50 @@ class UpdateNodeScoreAPI():
                 
         return remainingNodeScores
     
-    def getNodeURL(self, db, ns_table):
+    def getNodeURL(self, db, ns_table, uptime_table):
         NodeURLs = []
         NodeDict = {'node_address' : None, 'ip' : None}
         
         for n in ns_table:
-            endpoint = API + '/nodes/' + n['node_address']
-            
-            try:
-                r = requests.get(endpoint)
-                ip = r.json()['result']['node']['remote_url'].split('//')[-1].split(':')[0]
-                NodeDict['node_address'] = n['node_address']
-                NodeDict['ip'] = ip
-                NodeURLs.append(NodeDict.copy())
-                print(NodeDict)
-            except:
-                pass
-            time.sleep(1)
+            for node in uptime_table:
+                if n['node_address'] == node['node_address']:
+                    if node['remote_url'] != '':
+                        ip = node['remote_url'].split('//')[-1].split(':')[0]
+                        NodeDict['node_address'] = n['node_address']
+                        NodeDict['ip'] = ip
+                        break
+                    else:
+                        NodeDict = self.getRemoteURL(n)
+                        break
+                else:
+                    NodeDict = self.getRemoteURL(n)
+                    break
+                
+                #print(NodeDict)
+                
+            NodeURLs.append(NodeDict.copy())
+            time.sleep(0.314)
         
         return NodeURLs
+
+    def getRemoteURL(self, n):
+        NodeDict = {'node_address' : None, 'ip' : None}
+        endpoint = API + '/sentinel/nodes/' + n['node_address']
+        try:
+            r = requests.get(endpoint)
+            ip = r.json()['node']['remote_url'].split('//')[-1].split(':')[0]
+            NodeDict['node_address'] = n['node_address']
+            NodeDict['ip'] = ip
+        except: 
+            pass
+        return NodeDict
+    
     def getIPAddress(self, nodes):
         NodeURLs = []
         NodeDict = {'node_address' : None, 'ip' : None}
         print(nodes)
         for n in nodes:
-            print(n)
+            #print(n)
             NodeDict['node_address'] = n['node_address']
             try: 
                 NodeDict['ip'] = ipaddress.ip_address(n['ip'])
@@ -99,7 +131,7 @@ class UpdateNodeScoreAPI():
                          'datacenter' : True }
         c = db.cursor()
         nodes = self.getIPAddress(nodes)
-        print(nodes)
+        #print(nodes)
         #enter = input("Press Enter: ")
         
         for n in nodes:
@@ -146,14 +178,35 @@ class UpdateNodeScoreAPI():
 if __name__ == "__main__":
     NodeScores = UpdateNodeScoreAPI()
     db = NodeScores.connDB()
+    
+    start = timer()
     NodeScores.appendNodeScoreTable(db)
     table = NodeScores.getNodeScoreTable(db)
-    new_table = NodeScores.parseNodeScoreTable(db, table)
-    ips = NodeScores.getNodeURL(db, new_table)
-    print(ips)
-    #enter = input("Press Enter: ")
-    NodeScores.getNodeScores(db, ips)
+    end = timer()
     
+    time1 = round((end-start),4)
+    print("It took %ss to append Node Score Table" % time1)
+    
+    start = timer()
+    new_table = NodeScores.parseNodeScoreTable(db, table)
+    uptime_table = NodeScores.getNodeUptimeTable(db)
+    ips = NodeScores.getNodeURL(db, new_table, uptime_table)
+    end = timer()
+    
+    time2 = round((end-start),4)
+    print("It took %ss to get remote_urls of nodes" % time2)
+    
+    #print(ips)
+    #enter = input("Press Enter: ")
+    start = timer()
+    NodeScores.getNodeScores(db, ips)
+    end = timer()
+    
+    time3 = round((end-start), 4)
+    print("It took %ss to get Node Type data for ipdata.co." % time3)
+    
+    ttime = time1+time2+time3
+    print("Total elapsed time: %ss" % ttime)
     
     
     
