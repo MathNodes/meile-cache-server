@@ -1,9 +1,13 @@
+#!/bin/env python3
+
 import pymysql
 import scrtsxx
 import requests
 from timeit import default_timer as timer
 from urllib3.exceptions import InsecureRequestWarning
 import urllib3
+
+VERSION = 2.0
 
 APIURL = 'https://api.sentinel.mathnodes.com'
 
@@ -34,11 +38,11 @@ class UpdateNodeGeoIP():
         
         for n in NodeData:
             address = n['node_address']
-            endpoint = APIURL + '/nodes/' + address
+            endpoint = APIURL + '/sentinel/nodes/' + address
             
             try: 
                 r = requests.get(endpoint)
-                remote_url = r.json()['result']['node']['remote_url']
+                remote_url = r.json()['node']['remote_url']
                 NodeRemoteURL['address'].append(n['node_address'])
                 NodeRemoteURL['url'].append(remote_url)
             except Exception as e:
