@@ -5,6 +5,7 @@ import requests
 from requests.exceptions import ReadTimeout
 from time import sleep
 
+VERSION = 2.0
 API = "https://api.sentinel.mathnodes.com"
 GB  = 1000000000
 QUOTAID = 196212
@@ -31,7 +32,7 @@ def GetSubscriptionTable(db):
 
 def GetSubIDLimit(db):
     
-    query = "select * from subscriptions where sub_date > DATE_SUB(DATE(NOW()), INTERVAL 180 DAY) ORDER BY ID ASC LIMIT 1;"
+    query = "select * from subscriptions where sub_date >= '2023-08-18 12:10:42' ORDER BY ID ASC LIMIT 1;"
     c = db.cursor()
     c.execute(query)
     
@@ -45,18 +46,22 @@ def GetQuotaFromAPI(db, s, idlimit):
     for row in s:
         if int(row['id']) < QUOTAID:
             continue
-        endpoint = "/subscriptions/%s/quotas/%s" % (row['id'], row['owner'])
+        endpoint = "/sentinel/subscriptions/%s/allocations" % (row['id'])
         try: 
             r = requests.get(API + endpoint, timeout=15)
             subJSON = r.json()
+            print(subJSON)
             sleep(2)
         except Exception as e:
             print(str(e))
             continue
         
         try:
-            allocated = round(float(float(subJSON['result']['quota']['allocated']) / GB),5)
-            consumed  = round(float(float(subJSON['result']['quota']['consumed']) /GB),5)
+            if len(subJSON['allocations']) > 0:
+                allocated = round(float(float(subJSON['allocations'][0]['granted_bytes']) / GB),5)
+                consumed  = round(float(float(subJSON['allocations'][0]['utilised_bytes']) /GB),5)
+            else:
+                allocated = consumed = 0.0
         except Exception as e:
             print(str(e))
             continue
@@ -86,5 +91,4 @@ if __name__ == "__main__":
     subTable = GetSubscriptionTable(db)
     subIDLimit = GetSubIDLimit(db)
     print(subIDLimit)
-    answer = input("Press Enter to continue: ")
     GetQuotaFromAPI(db, subTable, subIDLimit)
