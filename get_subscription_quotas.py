@@ -2,10 +2,10 @@
 import pymysql
 import scrtsxx
 import requests
-from requests.exceptions import ReadTimeout
 from time import sleep
+from timeit import default_timer as timer
 
-VERSION = 2.0
+VERSION = 2.1
 API = "https://api.sentinel.mathnodes.com"
 GB  = 1000000000
 QUOTAID = 196212
@@ -42,7 +42,7 @@ def GetQuotaFromAPI(db, s, idlimit):
     
     if idlimit is not None:
         QUOTAID = int(idlimit['id'])
-    
+    datapoints = 1
     for row in s:
         if int(row['id']) < QUOTAID:
             continue
@@ -50,8 +50,8 @@ def GetQuotaFromAPI(db, s, idlimit):
         try: 
             r = requests.get(API + endpoint, timeout=15)
             subJSON = r.json()
-            print(subJSON)
-            sleep(2)
+            #print(subJSON)
+            sleep(1.314)
         except Exception as e:
             print(str(e))
             continue
@@ -72,7 +72,7 @@ def GetQuotaFromAPI(db, s, idlimit):
                    id=%d,allocated=%.5f,consumed=%.5f
                 ''' % (int(row['id']), allocated, consumed,
                        int(row['id']), allocated, consumed)
-        print(query)
+        #print(query)
         try:         
             c = db.cursor()
             c.execute(query)
@@ -81,6 +81,10 @@ def GetQuotaFromAPI(db, s, idlimit):
             print(str(e))
             continue
         
+        datapoints += 1
+        
+    return datapoints
+        
         
             
         
@@ -88,7 +92,20 @@ def GetQuotaFromAPI(db, s, idlimit):
 
 if __name__ == "__main__":
     db = connDB()
+    start = timer()
     subTable = GetSubscriptionTable(db)
     subIDLimit = GetSubIDLimit(db)
-    print(subIDLimit)
-    GetQuotaFromAPI(db, subTable, subIDLimit)
+    end = timer()
+    
+    time1 = round((end-start),4)
+    print("It took %ss to get database tables" % (time1))
+    #print(subIDLimit)
+    start = timer()
+    datapoints = GetQuotaFromAPI(db, subTable, subIDLimit)
+    end = timer()
+    
+    time2 = round((end-start),4)
+    
+    print("It took %ss to get %d quota subscription data points" % (time2, datapoints))
+    
+    
