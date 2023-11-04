@@ -8,7 +8,9 @@ from urllib3.exceptions import InsecureRequestWarning
 import requests
 import warnings
 
-VERSION = 2.0
+from time import sleep
+
+VERSION = 202311040305.37
 
 NodesInfoKeys = ["Moniker","Address","Price","Hourly Price", "Country","Speed","Latency","Peers","Handshake","Type","Version","Status"]
 APIURL        = "https://api.sentinel.mathnodes.com"
@@ -63,7 +65,7 @@ class UpdateNodeLocations():
     def get_city_of_node(self, nodes):   
         
         NodeLoc = {}
-
+        NodeURL = {}
 
         for n in nodes:
             endpoint = "/sentinel/nodes/" + n
@@ -72,14 +74,18 @@ class UpdateNodeLocations():
                 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
                 r = requests.get(APIURL + endpoint)
                 remote_url = r.json()['node']['remote_url']
+                print(f"{remote_url}", end=' ')
                 r = requests.get(remote_url + "/status", verify=False)
-        
-                NodeInfoJSON  = r.json() 
+                print(r.status_code)
+                NodeInfoJSON  = r.json()
+                print(NodeInfoJSON) 
                 NodeLoc[n]    = NodeInfoJSON['result']['location']['city']
+                
+                NodeURL[n]    = remote_url
             except Exception as e:
                 print(str(e))
                 
-        return NodeLoc
+        return NodeLoc, NodeURL
             
     def connDB(self): 
         db = pymysql.connect(host=scrtsxx.HOST,
@@ -102,21 +108,40 @@ class UpdateNodeLocations():
                 warnings.simplefilter("ignore") 
                 c.execute(query)
                 db.commit()
-            
+                
+    def UpdateRemoteURLsInUptimeTable(self, db, NodeURLs):
+        c = db.cursor()
+        for k,v in NodeURLs.items():
+            q = '''
+                INSERT INTO node_uptime (node_address, remote_url, tries, success, success_rate)
+                VALUES ("%s","%s",0,0,0.0)
+                ON DUPLICATE KEY UPDATE remote_url = "%s";
+                ''' % (k,v,v)
+            print(q)
+            sleep(1)     
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore") 
+                c.execute(q)
+                db.commit()
+                     
     
     
 if __name__ == "__main__":
     start = time.time()
+    print("meile_location_cache.py - v%s" % VERSION)
     NodeLoc = UpdateNodeLocations()
     db = NodeLoc.connDB()
-    Nodes = NodeLoc.get_nodes("17s")
+    Nodes = NodeLoc.get_nodes("20s")
     elapsed = (time.time() - start)
     print("Node data took: %.3fs, there are %d nodes" % (elapsed, len(Nodes)))
     start = time.time()
-    Locations = NodeLoc.get_city_of_node(Nodes)
-    #print(Locations)
+    Locations, URLs = NodeLoc.get_city_of_node(Nodes)
     elapsed = (time.time() - start)
     print("Retrieving cities took: %.3fs" % elapsed)
+    start = time.time()
+    NodeLoc.UpdateRemoteURLsInUptimeTable(db, URLs)
+    elapsed = (time.time() - start)
+    print("Updating node_uptime table took: %.3fs" % elapsed)
     start = time.time()
     NodeLoc.UpdateNodeLocDB(db, Locations)
     elapsed = (time.time() - start)
