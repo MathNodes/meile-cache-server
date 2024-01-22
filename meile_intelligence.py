@@ -7,10 +7,12 @@ import socket
 import pymysql
 import ipaddress
 from time import sleep 
+import concurrent.futures
+
 
 APIKEYS = scrtsxx.IP_REGISTRY_API_KEYS
 
-VERSION = 20240109.1001
+VERSION = 20240121.2251
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 IPREGISTRY_URL = "https://api.ipregistry.co/%s?key=%s"
@@ -81,47 +83,59 @@ class UpdateNodeType():
         
         return NodeIP
     
-    def query_ipregistry_co(self, db,NodeIP):
-        for node,ip in NodeIP.items():
-            N = random.randint(0,len(APIKEYS)-1)
-            API_KEY = APIKEYS[N]
-            TYPE = {"residential" : False, "business" : False, "hosting" : False, "education" : False, "government" : False }
+        
+    def ip_registry_multithread(self, db, NodeIP):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # Submit tasks in batches of 3
+            futures = [executor.submit(self.__ip_registry_worker, node, ip, db) for node, ip in NodeIP.items()]
+
+            # Wait for all tasks to complete
+            concurrent.futures.wait(futures)
+          
+    def __ip_registry_worker(self, node, ip, db):
+        N = random.randint(0,len(APIKEYS)-1)
+        API_KEY = APIKEYS[N]
+        TYPE = {"residential" : False, "business" : False, "hosting" : False, "education" : False, "government" : False }
+        try: 
             resp = requests.get(IPREGISTRY_URL % (ip,API_KEY))
             rJSON = resp.json()
-            try:
-                if rJSON['security']['is_cloud_provider']:
-                    TYPE['hosting'] = True   
-                
-                elif rJSON['company']['type'] == "isp":
-                    if rJSON['connection']['type'] == "isp":
-                        TYPE['residential'] = True
-                    elif rJSON['connection']['type'] == "business":
-                        TYPE['business'] = True
-                    else:
-                        TYPE['hosting'] = True
-                        
-                elif rJSON['company']['type'] == "business":    
-                    if rJSON['connection']['type'] == "hosting":
-                        TYPE['hosting'] = True
-                    else:
-                        TYPE['business'] = True
-                            
-                elif rJSON['company']['type'] == "education":
-                    TYPE['education'] = True
-                
-                elif rJSON['company']['type'] == "government":
-                    TYPE['government'] = True
-                    
-                for k,v in TYPE.items():
-                    if v:
-                        self.UpdateNodeTypeTable(db, node,k)
-            except KeyError:
-                pass
-            sleep(1)
+            sleep(.3)
+        except Exception as e:
+            print(str(e))
+            return 
+        try:
+            if rJSON['security']['is_cloud_provider']:
+                TYPE['hosting'] = True   
             
-    def UpdateNodeTypeTable(self, db, node, type):
+            elif rJSON['company']['type'] == "isp":
+                if rJSON['connection']['type'] == "isp":
+                    TYPE['residential'] = True
+                elif rJSON['connection']['type'] == "business":
+                    TYPE['business'] = True
+                else:
+                    TYPE['hosting'] = True
+                    
+            elif rJSON['company']['type'] == "business":    
+                if rJSON['connection']['type'] == "hosting":
+                    TYPE['hosting'] = True
+                else:
+                    TYPE['business'] = True
+                        
+            elif rJSON['company']['type'] == "education":
+                TYPE['education'] = True
+            
+            elif rJSON['company']['type'] == "government":
+                TYPE['government'] = True
+                
+            for k,v in TYPE.items():
+                if v:
+                    self.__UpdateNodeTypeTable(db, node,k)
+        except KeyError:
+            pass
         
-        query = 'UPDATE node_score SET isp_type = "%s" WHERE node_address = "%s";' % (type, node)
+    def __UpdateNodeTypeTable(self, db, node, ntype):
+        
+        query = 'UPDATE node_score SET isp_type = "%s" WHERE node_address = "%s";' % (ntype, node)
         print(query)
         c = db.cursor();
         c.execute(query)
@@ -132,7 +146,7 @@ if __name__ == "__main__":
     db = NType.connDB()
     NodeData = NType.get_node_type_table(db)
     NodeIP = NType.get_ip_of_node(db, NodeData)
-    NType.query_ipregistry_co(db,NodeIP)
+    NType.ip_registry_multithread(db, NodeIP)
     
                     
             
