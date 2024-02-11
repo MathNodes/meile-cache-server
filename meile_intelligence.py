@@ -82,6 +82,16 @@ class UpdateNodeType():
         #print(NodeRemoteURL)
         
         return NodeIP
+
+
+    def check_asn_null(self, db, node_address):
+        c = db.cursor()
+        query = f"SELECT asn FROM node_score WHERE node_address = '{node_address}';"
+        c.execute(query)
+        result = c.fetchone()
+        if result and result['asn'] is None:
+            return True
+        return False
     
         
     def ip_registry_multithread(self, db, NodeIP):
@@ -93,6 +103,9 @@ class UpdateNodeType():
             concurrent.futures.wait(futures)
           
     def __ip_registry_worker(self, node, ip, db):
+        if not self.check_asn_null(db, node):
+            return
+
         N = random.randint(0,len(APIKEYS)-1)
         API_KEY = APIKEYS[N]
         TYPE = {"residential" : False, "business" : False, "hosting" : False, "education" : False, "government" : False }
