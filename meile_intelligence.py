@@ -8,6 +8,7 @@ import pymysql
 import ipaddress
 from time import sleep 
 import concurrent.futures
+from dbutils.pooled_db import PooledDB
 
 
 APIKEYS = scrtsxx.IP_REGISTRY_API_KEYS
@@ -21,6 +22,17 @@ class UpdateNodeType():
     NodeAPIurl = {}
     
     def connDB(self): 
+        
+        self.db_pool = PooledDB(
+            creator=pymysql, 
+            maxconnections=5, 
+            host=scrtsxx.HOST, 
+            port=scrtsxx.PORT,
+            user=scrtsxx.USERNAME,
+            passwd=scrtsxx.PASSWORD,
+            database=scrtsxx.DB,      
+        )
+        
         db = pymysql.connect(host=scrtsxx.HOST,
                              port=scrtsxx.PORT,
                              user=scrtsxx.USERNAME,
@@ -83,7 +95,7 @@ class UpdateNodeType():
                         NodeIP[address] = ipaddress.ip_address(remote_url)
                     except ValueError:
                         try:
-                            NodeIPURLChanged[address] = socket.gethostbyname(remote_url)
+                            NodeIP[address] = socket.gethostbyname(remote_url)
                         except socket.gaierror:
                             continue
             except Exception as e:
@@ -94,12 +106,22 @@ class UpdateNodeType():
 
 
     def check_asn_null(self, db, node_address):
-        c = db.cursor()
+        connection = self.db_pool.connection()
+        cursor     = connection.cursor()
+        
         query = f"SELECT asn FROM node_score WHERE node_address = '{node_address}';"
-        c.execute(query)
-        result = c.fetchone()
-        if result and result['asn'] is None:
+        
+        try:
+            cursor.execute(query)
+            result = cursor.fetchone()
+            print(result)
+        finally:
+            cursor.close()
+            connection.close()
+            
+        if result and result[0] is None:
             return True
+        print("RETURNING FALSE")
         return False
     
     def api_rurl_multithread(self, NodeData):
@@ -107,17 +129,23 @@ class UpdateNodeType():
             # Submit tasks in batches of 3
             futures = [executor.submit(self.__api_url_worker, node['node_address']) for node in NodeData]
 
-            # Wait for all tasks to complete
-            concurrent.futures.wait(futures)
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()  # This will raise any exceptions that occurred in the thread
+                except Exception as e:
+                    print("An error occurred:", str(e))
         
     def ip_registry_multithread(self, db, NodeIP, changed):
-        print(NodeIP)
+        #print(NodeIP)
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             # Submit tasks in batches of 3
             futures = [executor.submit(self.__ip_registry_worker, node, ip, db, changed) for node, ip in NodeIP.items()]
 
-            # Wait for all tasks to complete
-            concurrent.futures.wait(futures)
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()  # This will raise any exceptions that occurred in the thread
+                except Exception as e:
+                    print("An error occurred:", str(e))
             
     def __api_url_worker(self, address):
         endpoint = APIURL + '/sentinel/nodes/' + address
@@ -133,10 +161,17 @@ class UpdateNodeType():
         
         
     def __ip_registry_worker(self, node, ip, db, changed):
-        if not changed:
-            if not self.check_asn_null(db, node):
-                return
+        if changed:
+            print("CHANGED REMOTE URLs... CHECKING....")
+            self.__check_nodes(node, ip, db)
+        
+        if not changed and self.check_asn_null(db, node):
+            print("NOT CHANGED - CHECK NULL NODE")
+            self.__check_nodes(node, ip, db)
+                
 
+        
+    def __check_nodes(self, node, ip, db):
         N = random.randint(0,len(APIKEYS)-1)
         API_KEY = APIKEYS[N]
         TYPE = {"residential" : False, "business" : False, "hosting" : False, "education" : False, "government" : False }
@@ -179,15 +214,22 @@ class UpdateNodeType():
                     self.__UpdateNodeTypeTable(db, node,k, ASN, ISP)
         except KeyError as e:
             print(str(e))
-            pass
+            pass    
+        
         
     def __UpdateNodeTypeTable(self, db, node, ntype, asn, isp):
+        connection = self.db_pool.connection()
+        cursor     = connection.cursor()
         
         query = 'UPDATE node_score SET asn = "%s", isp = "%s", isp_type = "%s" WHERE node_address = "%s";' % (asn, isp, ntype, node)
         print(query)
-        c = db.cursor();
-        c.execute(query)
-        db.commit()
+        try: 
+            cursor.execute(query)
+            connection.commit()
+        finally:
+            cursor.close()
+            connection.close()
+        
         
     def __UpdateUptimeTable(self, db, node, rurl):
         query = 'UPDATE node_uptime SET remote_url = "%s" WHERE node_address = "%s";' % (rurl, node)
