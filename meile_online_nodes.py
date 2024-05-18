@@ -1,16 +1,25 @@
+#!/bin/env python3
 import random
 import json
 import pymysql
 import scrtsxx
+import grpc
+from grpc import StatusCode
 from sentinel_sdk.sdk import SDKInstance
 from sentinel_sdk.types import PageRequest, Status
 from sentinel_sdk.modules.node import NodeModule
 
-
-GRPC_HOST = "aimokoivunen.mathnodes.com"
-GRPC_PORT = 9090
+GRPCs = [
+         {"host" : "grpc.mathnodes.com", "port" : 443, "ssl" : True},
+         {"host" : "grpc.mathnodes.com", "port" : 9000, "ssl" : False}, 
+         {"host" : "grpc.noncompliant.network", "port" : 443, "ssl" : True},
+         {"host" : "grpc.noncompliant.network", "port" : 9090, "ssl" : False},
+         {"host" : "grpc.dvpn.me", "port" : 443, "ssl" : True},
+         {"host" : "grpc.dvpn.me", "port" : 9090, "ssl" : False},
+         {"host" : "grpc.sentinel.co", "port" : 9090, "ssl" : False}
+        ]
 TIMEOUT = 30
-VERSION = 20240202.1954
+VERSION = 20240517.005121
 
 class OnlineNodes():
     
@@ -52,18 +61,30 @@ class OnlineNodes():
         
     
     def QueryAndRepopulateDB(self, db):
-        sdk = SDKInstance("aimokoivunen.mathnodes.com", 9090)
-        nm = NodeModule(sdk._channel,TIMEOUT,sdk._account,sdk._client)
+        grpc_status_code = StatusCode.UNAVAILABLE
         
-        nodes = nm.QueryNodes(status=Status.ACTIVE, pagination=PageRequest(limit=1000))
-        
+        while grpc_status_code != StatusCode.OK:
+            try: 
+                randgrpc = GRPCs[random.randint(0, len(GRPCs) -1)]
+                print(f"[qn]: Using: {randgrpc}...")
+                sdk = SDKInstance(randgrpc['host'], randgrpc['port'], ssl=randgrpc['ssl'])
+                nm = NodeModule(sdk._channel,TIMEOUT,sdk._account,sdk._client)
+                nodes = nm.QueryNodes(status=Status.ACTIVE, pagination=PageRequest(limit=1000))
+                grpc_status_code = StatusCode.OK
+            except (grpc.RpcError, ConnectionError) as e:
+                print(f"[qn]: {str(e)}")
+                grpc_status_code = StatusCode.UNAVAILABLE
+                    
         nodesStatus = sdk.nodes.QueryNodesStatus(nodes)
-        
+            
         '''value of nodesStatus
-        ('sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx', '{"success":true,"result":{"address":"sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx","bandwidth":{"download":166750000,"upload":321125000},"handshake":{"enable":false,"peers":8},"interval_set_sessions":10000000000,"interval_update_sessions":6900000000000,"interval_update_status":3300000000000,
+        ('sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx', '{"success":true,"result":{"address":"sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx","bandwidth":{"download":166750000,"upload":321125000},"handshake":{"enable":false,"peers":8},"interval_set_sessions":1
+0000000000,"interval_update_sessions":6900000000000,"interval_update_status":3300000000000,
         "location":{"city":"Bangkok","country":"Thailand","latitude":13.8054,"longitude":100.6751},"moniker":"Mrsilent-317","operator":"sent16gswagztkv4q8h4hc89stk2ndc2avgthwr4xys",
-        "peers":0,"gigabyte_prices":"52573ibc/31FEE1A2A9F9C01113F90BD0BBCCE8FD6BBB8585FAF109A2101827DD1D5B95B8,9204ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477,1180852ibc/B1C0DDB14F25279A2026BC8794E12B259F8BDA546A3C5132CCAEE4431CE36783,122740ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,15342624udvpn",
-        "hourly_prices":"18480ibc/31FEE1A2A9F9C01113F90BD0BBCCE8FD6BBB8585FAF109A2101827DD1D5B95B8,770ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477,1871892ibc/B1C0DDB14F25279A2026BC8794E12B259F8BDA546A3C5132CCAEE4431CE36783,18897ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
+        "peers":0,"gigabyte_prices":"52573ibc/31FEE1A2A9F9C01113F90BD0BBCCE8FD6BBB8585FAF109A2101827DD1D5B95B8,9204ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477,1180852ibc/B1C0DDB14F25279A2026BC8794E12B259F8BDA546A3C5132CCAEE4431CE36783,12274
+0ibc/ED07A3391A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,15342624udvpn",
+        "hourly_prices":"18480ibc/31FEE1A2A9F9C01113F90BD0BBCCE8FD6BBB8585FAF109A2101827DD1D5B95B8,770ibc/A8C2D23A1E6F95DA4E48BA349667E322BD7A6C996D8A4AAE8BA72E190F3D1477,1871892ibc/B1C0DDB14F25279A2026BC8794E12B259F8BDA546A3C5132CCAEE4431CE36783,18897ibc/ED07A3391
+A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
         "qos":{"max_peers":250},"type":2,"version":"0.7.1"}}')
         '''
         for a,d in nodesStatus.items():
@@ -112,4 +133,3 @@ if __name__ == "__main__":
     db = on.connDB()
     on.DropTableAndCreateNew(db)
     on.QueryAndRepopulateDB(db)
-    
