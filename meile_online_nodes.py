@@ -76,7 +76,7 @@ class OnlineNodes():
                 grpc_status_code = StatusCode.UNAVAILABLE
                     
         nodesStatus = sdk.nodes.QueryNodesStatus(nodes)
-            
+        self.DropTableAndCreateNew(db)
         '''value of nodesStatus
         ('sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx', '{"success":true,"result":{"address":"sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx","bandwidth":{"download":166750000,"upload":321125000},"handshake":{"enable":false,"peers":8},"interval_set_sessions":1
 0000000000,"interval_update_sessions":6900000000000,"interval_update_status":3300000000000,
@@ -131,5 +131,4 @@ A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
 if __name__ == "__main__":
     on = OnlineNodes()
     db = on.connDB()
-    on.DropTableAndCreateNew(db)
     on.QueryAndRepopulateDB(db)
