@@ -16,10 +16,12 @@ GRPCs = [
          {"host" : "grpc.noncompliant.network", "port" : 9090, "ssl" : False},
          {"host" : "grpc.dvpn.me", "port" : 443, "ssl" : True},
          {"host" : "grpc.dvpn.me", "port" : 9090, "ssl" : False},
-         {"host" : "grpc.sentinel.co", "port" : 9090, "ssl" : False}
+         {"host" : "grpc.sentinel.co", "port" : 9090, "ssl" : False},
+         {"host" : "grpc.ungovernable.dev", "port" : 443, "ssl" : True},
+         {"host" : "grpc.ungovernable.dev", "port" : 9090, "ssl" : False}
         ]
 TIMEOUT = 30
-VERSION = 20240517.005121
+VERSION = 20240622.214057
 
 class OnlineNodes():
     
