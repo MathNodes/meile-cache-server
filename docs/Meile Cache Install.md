@@ -2,7 +2,6 @@ Metabase Install
 ========================
 
 # Specs
-
 `>=4 vCPU (passmark 2200)`
 
 (cpu passmark/threads)*nVCPU
@@ -16,47 +15,43 @@ https://www.cpubenchmark.net/cpu.php?cpu=Intel+Xeon+E5-2697A+v4+%40+2.60GHz&id=2
 `>= 60GB SSD`
 
 # Create user
-
 ```
 useradd -b /home -c "Meile Metabase Cache" -m -s /bin/bash metabase
 ```
 
 Give the user a password
-
 ```
 passwd metabase
 ```
 
 Add user to sudoers
-
 ```
 echo "metabase ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
 ```
 
-# Firewall
 
+# Firewall
 ```
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw enable
 ```
 
 Install iptables-persistent and ufw (if not installed)
-
 ```
 sudo apt install iptables-persistent ufw
 ```
-
 # Install MySQL 8.0 Server
 
 ```
-sudo apt install mysql-server-8.0
+sudo apt install mysql-server-8.0 -y
 ```
 
 Run mysql_secure_install
 
 ```
-mysql_secure_install
+mysql_secure_installation
 ```
 
 Set to your preferences
@@ -70,8 +65,10 @@ sudo mysql
 at the command prompt enter the following:
 
 ```
-ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
+ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '^BjhK7Vkf*XMUx2pke*j';
 ```
+
+
 
 Create mathnodes user:
 
@@ -92,7 +89,6 @@ GRANT ALTER, REFERENCES, SELECT, INSERT, UPDATE, CREATE, DELETE, LOCK TABLES,SHO
 ```
 
 Create meile database
-
 ```
 CREATE DATABASE meile;
 ```
@@ -109,18 +105,18 @@ Flush privileges
 FLUSH PRIVILEGES;
 ```
 
+
 # Create DNS records
 
 ![A Records](media/qownnotes-media-RHHuNT.png)
 
 Wait an hour for DNS records to propagate
 
+
 # Run Speedtest
 
 ```
-wget -O speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
-chmod +x speedtest-cli
-./speedtest-cli
+wget -O speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py && chmod +x speedtest-cli && ./speedtest-cli
 ```
 
 Produce a screenshot of the results
@@ -128,13 +124,18 @@ Produce a screenshot of the results
 # Install Java Runtime Environment
 
 ```
-apt install default-jre
+sudo apt install default-jre -y
 ```
 
 # Download metabase.tar.gz
 
 ```
-wget https://mathnodes.com/metabase.tar.gz
+wget https://mathnodes.com/metabase.tar.bz2
+```
+Install bzip2 if not install
+
+```
+sudo apt install bzip2 -y
 ```
 
 Extract the archive
@@ -149,17 +150,14 @@ Move the metabase jar
 cd Metabase && mv metabase.jar ..
 ```
 
-# Install certbot
+# Install certbot & nginx
 
 ```
-apt install certbot python3-certbot-nginx
+sudo apt install certbot python3-certbot-nginx nginx
 ```
 
 # Install nginx
 
-```
-apt install nginx
-```
 
 Make the log directory and give it proper permissions
 
@@ -187,6 +185,7 @@ Add firewall rule to allow from ip to ip port 1337
 sudo ufw allow from `curl -4 icanhazip.com` to `curl -4 icanhazip.com` port 1337
 ```
 
+
 # Run certbot
 
 ```
@@ -207,6 +206,8 @@ proxy_set_header X-Forwarded-Host $server_name;
 proxy_set_header X-Forwarded-Proto https;
 ```
 
+
+
 # Create keystore
 
 Run the keystore script:
@@ -215,10 +216,11 @@ Run the keystore script:
 sudo ./metabase_keystore.sh hostname
 ```
 
+
 # Copy service file and start metabase
 
 ```
-cp /home/metabase/Metabase/metabase.service /etc/systemd/system
+sudo cp /home/metabase/Metabase/metabase.service /etc/systemd/system
 ```
 
 Copy defaults file
@@ -226,21 +228,19 @@ Copy defaults file
 ```
 sudo cp /home/metabase/Metabase/default/metabase /etc/default
 ```
-
 Edit your hostname in defaults file
 
 e.g.
-
 ```
-sudo sed -i 's/foo.bar/metabase.bluefren.xyz/g' /etc/default/metabase
+sudo sed -i 's/foo.bar/hsinao.com/g' /etc/default/metabase
 ```
-
 Edit your MySQL username and password
 
 ```
 sudo sed -i 's/username/mathnodes/g' /etc/default/metabase
 sudo sed -i 's/password/mathnodes_password/g' /etc/default/metabase
 ```
+
 
 Reload system daemons configs and start metabase
 
@@ -284,7 +284,6 @@ Where "password" is your MySQL password for the root user
 ```
 vi ~/.ssh/authorized_keys
 ```
-
 append the follwing
 
 ```
@@ -292,11 +291,64 @@ append the follwing
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB0fGG/z0l/8hkZNMYmti09CvJpIyyZe6UtvivzWx9MH sentinel@aimokoivunen
 ```
 
-# Submit your cache server
+# Submit your cache server 
 
 Write to freQniK on Telegram to add your cache server to the deployment
 
 Wait for the upload of the databases and then run the scripts in the cronjobs on the command line
+
+# Clone meile-cache-server (optional) (recommended)
+This is optional if you want to fulyl decentralized the ability to query nodes on the chain instead of relaying on centralized database server synchronization.  If you decide to do this (which you should), change the second line of the cronjob to the following:
+ 
+```shell
+*/10 * * * * /home/metabase/meile-cache-server/meile_online_nodes.py                   
+```
+
+
+
+Clone the meile cache server repo.
+  
+This is necessary for the online nodes query
+
+```shell
+git clone https://github.com/MathNodes/meile-cache-server
+```
+
+Install the sentinel SDK and pymysql
+
+```
+pip3 install sentinel-sdk pymysql
+```
+
+Edit **scrtsxx.py** filling in the details that you setup earlier
+
+```shell
+vi meile-cache-server/scrtsxx.py
+```
+
+Edit
+
+```python
+DB       = "meile" # meile
+USERNAME = "mathnodes" # mathnodes
+PASSWORD = "password" # your     mathnodes MySQL Password
+HOST     = "localhost" #keep
+PORT     = 3306
+```
+
+Give online nodes query executable permission:
+
+```shell
+cd meile-cache-server && chmod +x meile_online_nodes.py
+```
+
+Run online nodes query
+
+```
+/home/metabase/meile-cache-server/meile_online_nodes.py
+```
+
+Wait for the query to finish then go on to the next step
 
 # Configure metabase
 
@@ -307,6 +359,7 @@ Setup your admin account (follow instructions)
 Select MySQL
 
 ![qownnotes-media-vORAWI](media/qownnotes-media-vORAWI.png)
+
 
 Enter the following information into the screen
 
@@ -319,7 +372,7 @@ Enter the following information into the screen
 Click on "NEW"->"SQL Question"
 
 Then paste the following:  
-
+  
 ```sql
 SELECT
   `online_nodes`.`node_address` AS `node_address`,
@@ -344,7 +397,7 @@ SELECT
   `Node Formula - Node Address`.`formula` AS `formula`
 FROM
   `online_nodes`
-
+ 
 LEFT JOIN `node_score` AS `Node Score - Node Address` ON `online_nodes`.`node_address` = `Node Score - Node Address`.`node_address`
   LEFT JOIN `ratings_nodes` AS `Ratings Nodes - Node Address` ON `online_nodes`.`node_address` = `Ratings Nodes - Node Address`.`node_address`
   LEFT JOIN `node_formula` AS `Node Formula - Node Address` ON `online_nodes`.`node_address` = `Node Formula - Node Address`.`node`
@@ -364,11 +417,13 @@ Enable public sharing
 
 ![qownnotes-media-DLJIjc](media/qownnotes-media-DLJIjc.png)
 
+
 Go back into the "Online Nodes" query that you just saved
 
 Click the "Sharing" and turn it on
 
 ![qownnotes-media-GYlbzb](media/qownnotes-media-GYlbzb.png)
+
 
 Copy the Public Link
 
