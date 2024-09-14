@@ -30,7 +30,7 @@ class PlanWizard():
         
         data_dict = {}
         
-        for plan in range(1, 4):
+        for plan in range(1, 10):
             url = base_url.format(plan)
             response = requests.get(url)
             print(f"Getting Plan: {plan}")
@@ -47,7 +47,7 @@ class PlanWizard():
         
         # Insert data into the MySQL table
         insert_query = """
-        INSERT IGNORE INTO plan_wizard (
+        REPLACE INTO plan_wizard (
             id, created_at, is_active, revision, is_node_status_fetched, last_node_status_fetch,
             is_network_info_fetched, last_network_info_fetch, is_health_checked, last_health_check,
             is_whitelist_info_fetched, last_whitelist_info_fetch, address, remote_url, status, 
