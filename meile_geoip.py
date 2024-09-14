@@ -6,6 +6,8 @@ import scrtsxx
 
 charset ='utf8mb4'
 
+VERSION = 20240710.0126
+
 def connDB():
     db = pymysql.connect(host=scrtsxx.HOST,
                          port=scrtsxx.PORT,

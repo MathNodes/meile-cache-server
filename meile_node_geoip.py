@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 from urllib3.exceptions import InsecureRequestWarning
 import urllib3
 
-VERSION = 2.0
+VERSION = 20240914.0238
 
 APIURL = 'https://api.sentinel.mathnodes.com'
 
@@ -67,9 +67,9 @@ class UpdateNodeGeoIP():
                     
                 NodeLoc = self.get_city_of_node(NodeRemoteURLs['url'][rindex])
                 
-                query = 'UPDATE node_geoip SET moniker = "%s", country = "%s", city = "%s", latitude = "%s", longitude = "%s" WHERE node_address = "%s";' % (NodeLoc['moniker'],
-                                                                                                                                                            NodeLoc['country'],
-                                                                                                                                                            NodeLoc['city'],
+                query = 'UPDATE node_geoip SET moniker = "%s", country = "%s", city = "%s", latitude = "%s", longitude = "%s" WHERE node_address = "%s";' % (NodeLoc['moniker'] if NodeLoc['moniker'] else node['Moniker'],
+                                                                                                                                                            NodeLoc['country'] if NodeLoc['country'] else node['country'],
+                                                                                                                                                            NodeLoc['city'] if NodeLoc['city'] else node['city'],
                                                                                                                                                             NodeLoc['latitude'],
                                                                                                                                                             NodeLoc['longitude'],
                                                                                                                                                             node['node_address'])

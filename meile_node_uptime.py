@@ -110,6 +110,7 @@ class UpdateNodeUptime():
                 else:
                     return False
             except socket.gaierror as e:
+                print(f"Socket Err: {host}:{port}")
                 print(str(e))
                 return False
             
@@ -122,6 +123,7 @@ class UpdateNodeUptime():
                 rindex = NodeRemoteURLs['address'].index(node['node_address'])
                 remote_url = NodeRemoteURLs['url'][rindex]    
             except Exception as e:
+                print(node)
                 print(str(e))
                 continue
             
@@ -138,7 +140,7 @@ class UpdateNodeUptime():
                                                                                                                                               success_rate,
                                                                                                                                               node['node_address'])
             
-            #print(query)
+            print(query)
             c = db.cursor()
             c.execute(query)
             db.commit()    
