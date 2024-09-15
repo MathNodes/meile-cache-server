@@ -67,7 +67,7 @@ class UpdateNodeGeoIP():
                     
                 NodeLoc = self.get_city_of_node(NodeRemoteURLs['url'][rindex])
                 
-                query = 'UPDATE node_geoip SET moniker = "%s", country = "%s", city = "%s", latitude = "%s", longitude = "%s" WHERE node_address = "%s";' % (NodeLoc['moniker'] if NodeLoc['moniker'] else node['Moniker'],
+                query = 'UPDATE node_geoip SET moniker = "%s", country = "%s", city = "%s", latitude = "%s", longitude = "%s" WHERE node_address = "%s";' % (NodeLoc['moniker'] if NodeLoc['moniker'] else node['moniker'],
                                                                                                                                                             NodeLoc['country'] if NodeLoc['country'] else node['country'],
                                                                                                                                                             NodeLoc['city'] if NodeLoc['city'] else node['city'],
                                                                                                                                                             NodeLoc['latitude'],
