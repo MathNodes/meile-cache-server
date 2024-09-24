@@ -102,7 +102,7 @@ class BandwidthUsage():
             return
         if sub['gigabytes'] > 0.0:
             endpoint = f"/sentinel/subscriptions/{sub['id']}/allocations"  
-            print(API+endpoint)
+            #print(API+endpoint)
             try: 
                 r = requests.get(API + endpoint, timeout=15)
                 subJSON = r.json()
