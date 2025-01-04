@@ -4,10 +4,13 @@ import pymysql
 import scrtsxx
 import requests
 import socket
+import sys
 from contextlib import closing
 from timeit import default_timer as timer
+from urllib.parse import urlparse
+import concurrent.futures
 
-VERSION = 2.0
+VERSION = 20250104.0323
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 class UpdateNodeUptime():
@@ -44,7 +47,6 @@ class UpdateNodeUptime():
         #print(nodes_without_remote_url)
         for n in NodeData:
             address = n['node_address']
-            endpoint = APIURL + '/sentinel/nodes/' + address
             
             # Check if the node already has a remote_url in the table
             #if any(node['node_address'] == address for node in nodes_without_remote_url):
@@ -54,12 +56,13 @@ class UpdateNodeUptime():
             query = f"SELECT remote_url FROM node_uptime WHERE node_address = '{address}';"
             c.execute(query)
             result = c.fetchone()
-            print(result['remote_url'])
+            #print(result['remote_url'])
             if not result['remote_url']:
                 
-                endpoint = APIURL + '/nodes/' + address
+                endpoint = APIURL + '/sentinel/nodes/' + address
                 remote_url = result['remote_url']
-                print(f"Getting remote_url of: {address}", end=":")
+                print(f"Getting remote_url of: {address}")
+                sys.stdout.flush()
                 
                 try:
                     r = requests.get(endpoint)
@@ -67,7 +70,7 @@ class UpdateNodeUptime():
                 except Exception as e:
                     print(str(e))
                     continue
-                print(f"{remote_url}")
+                #print(f"{remote_url}")
             else:
                 remote_url = result['remote_url']
                 
@@ -78,7 +81,7 @@ class UpdateNodeUptime():
         
         return NodeRemoteURL
 
-   
+    '''
     def check_uptime(self, NodeRemoteURLs):
         k=0
         
@@ -87,20 +90,83 @@ class UpdateNodeUptime():
         
         for n in NodeRemoteURLs['address']:
             url = NodeRemoteURLs['url'][k]
-            
-            hp = url.split('//')[-1]
-            host, port = hp.split(":")
+            parsed_url = urlparse(url)
+            netloc = parsed_url.netloc
+            #host, port = urlparse(url).netloc.split(":")
             #print(f"host: {host}, port: {port}")
             #print("Checking if up: ", end='')
             
-            up = self.check_socket(host, int(port.replace('/','')))
+            if '[' in netloc and ']' in netloc:
+                host = netloc.split(']', 1)[0][1:]
+                
+                if ':' in netloc.split(']', 1)[1]:
+                    port = int(netloc.split(']', 1)[1].split(':', 1)[1])
+                else:
+                    port = None
+            else:
+                parts = netloc.split(':')
+                if len(parts) > 2:
+                    raise ValueError("Invalid URL format")
+                host = parts[0]
+                if len(parts) == 2:
+                    port = int(parts[1])
+                else:
+                    port = None
+            
+            
+            up = self.check_socket(host, int(port))
             #print(up)
             NodeUptimeBoolean['address'].append(n)
             NodeUptimeBoolean['up'].append(up)
             k += 1
             
         return NodeUptimeBoolean
+    '''
     
+    def check_uptime(self, NodeRemoteURLs):
+        k = 0
+        NodeUptimeBoolean = {'address': [], 'up': []}
+        
+        def check_uptime_for_node(n, url):
+            parsed_url = urlparse(url)
+            netloc = parsed_url.netloc
+            
+            if '[' in netloc and ']' in netloc:
+                host = netloc.split(']', 1)[0][1:]
+                if ':' in netloc.split(']', 1)[1]:
+                    port = int(netloc.split(']', 1)[1].split(':', 1)[1])
+                else:
+                    port = None
+            else:
+                parts = netloc.split(':')
+                if len(parts) > 2:
+                    raise ValueError("Invalid URL format")
+                host = parts[0]
+                if len(parts) == 2:
+                    port = int(parts[1])
+                else:
+                    port = None
+            
+            up = self.check_socket(host, int(port) if port else None)
+            result = (n, up)
+            print(result)
+            return result
+    
+        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            futures = []
+            
+            for n in NodeRemoteURLs['address']:
+                url = NodeRemoteURLs['url'][k]
+                futures.append(executor.submit(check_uptime_for_node, n, url))
+                k += 1
+            
+            for future in concurrent.futures.as_completed(futures):
+                address, up = future.result()
+                NodeUptimeBoolean['address'].append(address)
+                NodeUptimeBoolean['up'].append(up)
+    
+        return NodeUptimeBoolean
+
     def check_socket(self, host, port):
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
             sock.settimeout(3)
