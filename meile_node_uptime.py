@@ -10,7 +10,7 @@ from timeit import default_timer as timer
 from urllib.parse import urlparse
 import concurrent.futures
 
-VERSION = 20250104.0323
+VERSION = 20250105.1628
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 class UpdateNodeUptime():
@@ -206,7 +206,7 @@ class UpdateNodeUptime():
                                                                                                                                               success_rate,
                                                                                                                                               node['node_address'])
             
-            print(query)
+            #print(query)
             c = db.cursor()
             c.execute(query)
             db.commit()    
