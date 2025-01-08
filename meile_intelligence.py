@@ -148,11 +148,20 @@ class UpdateNodeType():
                     print("An error occurred:", str(e))
             
     def __api_url_worker(self, address):
+        real_ip_endpoint = "https://sentinel-pubip.benji.link/api/get.php?node=" + address
         endpoint = APIURL + '/sentinel/nodes/' + address
         
         try: 
-            r = requests.get(endpoint)
-            api_rurl = r.json()['node']['remote_url']
+            r = requests.get(real_ip_endpoint)
+            json = r.json()
+            print(json)
+            
+            if json['pub_ip']:
+                # just adding the https:// so that the previous code works as well.
+                api_rurl = "https://" + json['pub_ip'] + ":5000/"
+            else:
+                r = requests.get(endpoint)
+                api_rurl = r.json()['node']['remote_url']
         except Exception as e:
             print(f"API URL WORKER ERROR: {str(e)}")
             api_rurl = ""
