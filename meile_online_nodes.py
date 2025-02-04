@@ -109,6 +109,9 @@ A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
                 node_type      = int(result['type']) #SMALLINT
                 node_version   = result['version'] #VARCHAR(20)
                 
+                if "ncosmic" in gb_prices or "ncosmic" in hr_prices:
+                    continue
+                
                 iquery = '''
                 INSERT IGNORE INTO online_nodes (node_address, moniker, country, city, latitude, longitude, gigabyte_prices, hourly_prices, bandwidth_down, bandwidth_up, wallet, handshake, connected_peers, max_peers, node_type, node_version) 
                 VALUES ("%s", "%s", "%s", "%s", %.4f, %.4f, "%s", "%s", %d, %d, "%s", "%s", %d, %d, %d, "%s")
