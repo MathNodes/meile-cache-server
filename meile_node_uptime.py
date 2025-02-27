@@ -202,7 +202,7 @@ class UpdateNodeUptime():
         except Exception as e:
             print(node)
             print(str(e))
-            continue
+            return
         
         tries = node['tries'] + 1
         if NodeUptimeBoolean['up'][index]:
