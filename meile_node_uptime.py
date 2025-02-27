@@ -9,13 +9,26 @@ from contextlib import closing
 from timeit import default_timer as timer
 from urllib.parse import urlparse
 import concurrent.futures
+from dbutils.pooled_db import PooledDB
 
-VERSION = 20250105.1628
+VERSION = 20250227.1502
+WORKERS = 30
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 class UpdateNodeUptime():
     
     def connDB(self): 
+        
+        self.db_pool = PooledDB(
+            creator=pymysql, 
+            maxconnections=30, 
+            host=scrtsxx.HOST, 
+            port=scrtsxx.PORT,
+            user=scrtsxx.USERNAME,
+            passwd=scrtsxx.PASSWORD,
+            database=scrtsxx.DB,      
+        )
+        
         db = pymysql.connect(host=scrtsxx.HOST,
                              port=scrtsxx.PORT,
                              user=scrtsxx.USERNAME,
@@ -181,35 +194,47 @@ class UpdateNodeUptime():
                 return False
             
             
-    def UpdateNodeUptimeTable(self, db, NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean):
-        for node in NodeUptimeData:
-            
-            try: 
-                index  = NodeUptimeBoolean['address'].index(node['node_address'])
-                rindex = NodeRemoteURLs['address'].index(node['node_address'])
-                remote_url = NodeRemoteURLs['url'][rindex]    
-            except Exception as e:
-                print(node)
-                print(str(e))
-                continue
-            
-            tries = node['tries'] + 1
-            if NodeUptimeBoolean['up'][index]:
-                success = node['success'] + 1                
-            else:
-                success = node['success']
-            success_rate = round(float(success/tries),3)
-            
-            query = 'UPDATE node_uptime SET remote_url = "%s", tries = %d, success = %d, success_rate = "%.3f" WHERE node_address = "%s";' % (remote_url,
-                                                                                                                                              tries,
-                                                                                                                                              success,
-                                                                                                                                              success_rate,
-                                                                                                                                              node['node_address'])
-            
-            #print(query)
-            c = db.cursor()
-            c.execute(query)
-            db.commit()    
+    def update_node_uptime(self, node, NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean):
+        try: 
+            index  = NodeUptimeBoolean['address'].index(node['node_address'])
+            rindex = NodeRemoteURLs['address'].index(node['node_address'])
+            remote_url = NodeRemoteURLs['url'][rindex]    
+        except Exception as e:
+            print(node)
+            print(str(e))
+            continue
+        
+        tries = node['tries'] + 1
+        if NodeUptimeBoolean['up'][index]:
+            success = node['success'] + 1                
+        else:
+            success = node['success']
+        success_rate = round(float(success/tries),3)
+        
+        query = 'UPDATE node_uptime SET remote_url = "%s", tries = %d, success = %d, success_rate = "%.3f" WHERE node_address = "%s";' % (remote_url,
+                                                                                                                                          tries,
+                                                                                                                                          success,
+                                                                                                                                          success_rate,
+                                                                                                                                          node['node_address'])
+        
+        #print(query)
+        #c = db.cursor()
+        #c.execute(query)
+        #db.commit()
+        with self.lock:
+            connection = self.db_pool.connection()
+            cursor     = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+            connection.close()
+                
+    def UpdateNodeUptimeTable(self, NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
+            futures = []
+            for node in NodeUptimeData:
+                futures.append(executor.submit(self.update_node_uptime, node, NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean))
+            for future in concurrent.futures.as_completed(futures):
+                future.result()    
             
 if __name__ == "__main__":
     NodeUptimeClass = UpdateNodeUptime()
@@ -237,7 +262,7 @@ if __name__ == "__main__":
     print("It took %ss to check if all nodes are connectable" % (time3))
     
     start = timer()
-    NodeUptimeClass.UpdateNodeUptimeTable(db, NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean)
+    NodeUptimeClass.UpdateNodeUptimeTable(NodeUptimeData, NodeRemoteURLs, NodeUptimeBoolean)
     end = timer()
     
     time4 = round((end - start),4)
