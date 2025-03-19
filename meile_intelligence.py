@@ -13,7 +13,7 @@ from dbutils.pooled_db import PooledDB
 
 APIKEYS = scrtsxx.IP_REGISTRY_API_KEYS
 
-VERSION = 20240217.1659
+VERSION = 20250319.1453
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 IPREGISTRY_URL = "https://api.ipregistry.co/%s?key=%s"
@@ -68,8 +68,11 @@ class UpdateNodeType():
 
             # Retrieve remote_url from the table for nodes that have it stored
             query = f"SELECT remote_url FROM node_uptime WHERE node_address = '{address}';"
+            query2 = f"SELECT exitIp FROM exitip WHERE addr = '{address}';"
             c.execute(query)
             result = c.fetchone()
+            c.execute(query2)
+            exitresult = c.fetchone()
             #print(result['remote_url'])
             try:
                 db_rurl = result['remote_url']
@@ -81,21 +84,58 @@ class UpdateNodeType():
                 if NodeDBIP[address] != self.NodeAPIurl[address]:
                     self.__UpdateUptimeTable(db, address, self.NodeAPIurl[address])
                     remote_url = self.NodeAPIurl[address].split('//')[-1].split(':')[0]
-                    try: 
-                        NodeIPURLChanged[address] = ipaddress.ip_address(remote_url)
+                    try:
+                        rurlip = ipaddress.ip_address(remote_url)
+                        if exitresult['exitIp']:
+                            exitIp = ipaddress.ip_address(exitresult['exitIp'])
+                            if rurlip != exitIp: 
+                                print(f"{rurlip},{exitIp}")
+                                NodeIPURLChanged[address] = exitIp
+                            else:
+                                NodeIPURLChanged[address] = rurlip 
+                        else:
+                            NodeIPURLChanged[address] = rurlip 
+                        
                     except ValueError:
                         try:
-                            NodeIPURLChanged[address] = socket.gethostbyname(remote_url)
+                            rurlip = socket.gethostbyname(remote_url)
+                            if exitresult['exitIp']:
+                                exitIp = ipaddress.ip_address(exitresult['exitIp'])
+                                if rurlip != exitIp: 
+                                    print(f"{rurlip},{exitIp}")
+                                    NodeIPURLChanged[address] = exitIp
+                                else:
+                                    NodeIPURLChanged[address] = rurlip 
+                            else:
+                                NodeIPURLChanged[address] = rurlip 
                         except socket.gaierror:
                             continue
                         
                 else:
                     remote_url = NodeDBIP[address].split('//')[-1].split(':')[0]
-                    try: 
-                        NodeIP[address] = ipaddress.ip_address(remote_url)
+                    try:  
+                        rurlip = ipaddress.ip_address(remote_url)
+                        if exitresult['exitIp']:
+                            exitIp = ipaddress.ip_address(exitresult['exitIp'])
+                            if rurlip != exitIp:
+                                print(f"{rurlip},{exitIp}")
+                                NodeIP[address] = exitIp
+                            else:
+                                NodeIP[address] = rurlip 
+                        else:
+                            NodeIP[address] = rurlip 
                     except ValueError:
                         try:
-                            NodeIP[address] = socket.gethostbyname(remote_url)
+                            rurlip = socket.gethostbyname(remote_url)
+                            if exitresult['exitIp']:
+                                exitIp = ipaddress.ip_address(exitresult['exitIp'])
+                                if rurlip != exitIp:
+                                    print(f"{rurlip},{exitIp}")
+                                    NodeIP[address] = exitIp
+                                else:
+                                    NodeIP[address] = rurlip
+                            else:
+                                NodeIP[address] = rurlip
                         except socket.gaierror:
                             continue
             except Exception as e:

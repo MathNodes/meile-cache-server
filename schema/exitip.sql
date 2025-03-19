@@ -1,0 +1,23 @@
+CREATE TABLE exitip (
+    addr VARCHAR(255) PRIMARY KEY,
+    moniker VARCHAR(255) ,
+    version VARCHAR(15) ,
+    type TINYINT ,
+    api VARCHAR(500) ,
+    exitIp VARCHAR(65) ,
+    asn VARCHAR(15) ,
+    continentCode CHAR(2) ,
+    countryCode CHAR(2) ,
+    country VARCHAR(100) ,
+    city VARCHAR(100) ,
+    latitude DECIMAL(10,6) ,
+    longitude DECIMAL(10,6) ,
+    ipRep TINYINT UNSIGNED ,
+    isResidential TINYINT(1) ,
+    isActive TINYINT(1) ,
+    isHealthy TINYINT(1) ,
+    isDuplicate TINYINT(1) ,
+    isWhitelisted TINYINT(1) ,
+    fetchedAt DATETIME ,
+    inactiveAt DATETIME
+);
