@@ -22,7 +22,7 @@ class UpdateNodeUptime():
         self.db_pool = PooledDB(
             creator=pymysql, 
             maxconnections=50, 
-            host=scrtsxx.RHOST, 
+            host=scrtsxx.RHOST, # Change to scrtsxx.HOST if on same server
             port=scrtsxx.PORT,
             user=scrtsxx.USERNAME,
             passwd=scrtsxx.PASSWORD,

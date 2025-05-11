@@ -1,0 +1,1 @@
+curl https://lcd.sentinel.co/sentinel/plans/1
