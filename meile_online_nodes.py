@@ -23,7 +23,7 @@ GRPCs = [
          {"host" : "grpc.sentineldao.com", "port" : 443, "ssl" : True},
         ]
 TIMEOUT = 30
-VERSION = 20250609.2050
+VERSION = 20250804.1446
 
 class OnlineNodes():
     
