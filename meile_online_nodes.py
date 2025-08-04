@@ -12,16 +12,18 @@ from sentinel_sdk.modules.node import NodeModule
 GRPCs = [
          {"host" : "grpc.mathnodes.com", "port" : 443, "ssl" : True},
          {"host" : "grpc.mathnodes.com", "port" : 9000, "ssl" : False}, 
-         {"host" : "grpc.noncompliant.network", "port" : 443, "ssl" : True},
-         {"host" : "grpc.noncompliant.network", "port" : 9090, "ssl" : False},
+         {"host" : "grpc.sentinel.noncompliance.org", "port" : 443, "ssl" : True},
+         {"host" : "grpc.sentinel.noncompliance.org", "port" : 9090, "ssl" : False},
          {"host" : "grpc.dvpn.me", "port" : 443, "ssl" : True},
          {"host" : "grpc.dvpn.me", "port" : 9090, "ssl" : False},
          {"host" : "grpc.sentinel.co", "port" : 9090, "ssl" : False},
          {"host" : "grpc.ungovernable.dev", "port" : 443, "ssl" : True},
-         {"host" : "grpc.ungovernable.dev", "port" : 9090, "ssl" : False}
+         {"host" : "grpc.ungovernable.dev", "port" : 9090, "ssl" : False},
+         {"host" : "grpc-sentinel.busurnode.com", "port" : 443, "ssl" : True},
+         {"host" : "grpc.sentineldao.com", "port" : 443, "ssl" : True},
         ]
 TIMEOUT = 30
-VERSION = 20240622.214057
+VERSION = 20250609.2050
 
 class OnlineNodes():
     
@@ -90,48 +92,51 @@ A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
         "qos":{"max_peers":250},"type":2,"version":"0.7.1"}}')
         '''
         for a,d in nodesStatus.items():
-            if json.loads(d)['success']:
-                result = json.loads(d)['result']
-                address        = result['address'] # VARCHAR(100)
-                bandwidth_down = int(result['bandwidth']['download']) # BIGINT
-                bandwidth_up   = int(result['bandwidth']['upload']) # BIGINT
-                handshake      = result['handshake']['enable'] # Boolean
-                city           = result['location']['city'] # VARCHAR(100)
-                country        = result['location']['country'] #VARCHAR(100)
-                latitude       = float(result['location']['latitude']) #DECIMAL(7,4)
-                longitude      = float(result['location']['longitude']) #DECIMAL(7,4)
-                moniker        = result['moniker'] # VARCHAR(200)
-                wallet         = result['operator'] #VARCHAR(100)
-                peers          = int(result['peers']) #SMALLINT
-                gb_prices      = result['gigabyte_prices'] #VARCHAR(2000)
-                hr_prices      = result['hourly_prices'] #VARCHAR(2000)
-                max_peers      = int(result['qos']['max_peers']) #SMALLINT
-                node_type      = int(result['type']) #SMALLINT
-                node_version   = result['version'] #VARCHAR(20)
-                
-                if "ncosmic" in gb_prices or "ncosmic" in hr_prices:
-                    continue
-                
-                iquery = '''
-                INSERT IGNORE INTO online_nodes (node_address, moniker, country, city, latitude, longitude, gigabyte_prices, hourly_prices, bandwidth_down, bandwidth_up, wallet, handshake, connected_peers, max_peers, node_type, node_version) 
-                VALUES ("%s", "%s", "%s", "%s", %.4f, %.4f, "%s", "%s", %d, %d, "%s", "%s", %d, %d, %d, "%s")
-                ''' % (address,
-                       moniker, 
-                       country, 
-                       city, 
-                       latitude, 
-                       longitude, 
-                       gb_prices, 
-                       hr_prices, 
-                       bandwidth_down, 
-                       bandwidth_up, 
-                       wallet, 
-                       handshake, 
-                       peers, 
-                       max_peers,
-                       node_type, 
-                       node_version)  
-                self.InsertRow(db, iquery)
+            try: 
+                if json.loads(d)['success']:
+                    result = json.loads(d)['result']
+                    address        = result['address'] # VARCHAR(100)
+                    bandwidth_down = int(result['bandwidth']['download']) # BIGINT
+                    bandwidth_up   = int(result['bandwidth']['upload']) # BIGINT
+                    handshake      = result['handshake']['enable'] # Boolean
+                    city           = result['location']['city'] # VARCHAR(100)
+                    country        = result['location']['country'] #VARCHAR(100)
+                    latitude       = float(result['location']['latitude']) #DECIMAL(7,4)
+                    longitude      = float(result['location']['longitude']) #DECIMAL(7,4)
+                    moniker        = result['moniker'] # VARCHAR(200)
+                    wallet         = result['operator'] #VARCHAR(100)
+                    peers          = int(result['peers']) #SMALLINT
+                    gb_prices      = result['gigabyte_prices'] #VARCHAR(2000)
+                    hr_prices      = result['hourly_prices'] #VARCHAR(2000)
+                    max_peers      = int(result['qos']['max_peers']) #SMALLINT
+                    node_type      = int(result['type']) #SMALLINT
+                    node_version   = result['version'] #VARCHAR(20)
+                    
+                    if "ncosmic" in gb_prices or "ncosmic" in hr_prices:
+                        continue
+                    
+                    iquery = '''
+                    INSERT IGNORE INTO online_nodes (node_address, moniker, country, city, latitude, longitude, gigabyte_prices, hourly_prices, bandwidth_down, bandwidth_up, wallet, handshake, connected_peers, max_peers, node_type, node_version) 
+                    VALUES ("%s", "%s", "%s", "%s", %.4f, %.4f, "%s", "%s", %d, %d, "%s", "%s", %d, %d, %d, "%s")
+                    ''' % (address,
+                           moniker, 
+                           country, 
+                           city, 
+                           latitude, 
+                           longitude, 
+                           gb_prices, 
+                           hr_prices, 
+                           bandwidth_down, 
+                           bandwidth_up, 
+                           wallet, 
+                           handshake, 
+                           peers, 
+                           max_peers,
+                           node_type, 
+                           node_version)  
+                    self.InsertRow(db, iquery)
+            except:
+                pass
         
 if __name__ == "__main__":
     on = OnlineNodes()
