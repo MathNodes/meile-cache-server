@@ -13,7 +13,7 @@ from dbutils.pooled_db import PooledDB
 
 APIKEYS = scrtsxx.IP_REGISTRY_API_KEYS
 
-VERSION = 20250319.1453
+VERSION = 20250813.0056
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 IPREGISTRY_URL = "https://api.ipregistry.co/%s?key=%s"
@@ -258,6 +258,12 @@ class UpdateNodeType():
         
         
     def __UpdateNodeTypeTable(self, db, node, ntype, asn, isp):
+        with open('node_whitelist', "r") as wlFILE:
+            whitelist = [line.strip() for line in wlFILE]
+            
+        if node in whitelist:
+            return
+        
         connection = self.db_pool.connection()
         cursor     = connection.cursor()
         
