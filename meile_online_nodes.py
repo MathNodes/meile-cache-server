@@ -6,7 +6,7 @@ import scrtsxx
 import grpc
 from grpc import StatusCode
 from sentinel_sdk.sdk import SDKInstance
-from sentinel_sdk.types import PageRequest, Status
+from sentinel_sdk.types import PageRequest, Status, NodeType
 from sentinel_sdk.modules.node import NodeModule
 
 GRPCs = [
@@ -80,6 +80,7 @@ class OnlineNodes():
                 grpc_status_code = StatusCode.UNAVAILABLE
                     
         nodesStatus = sdk.nodes.QueryNodesStatus(nodes)
+        #print(nodeStatus)
         self.DropTableAndCreateNew(db)
         '''value of nodesStatus
         ('sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx', '{"success":true,"result":{"address":"sentnode16gswagztkv4q8h4hc89stk2ndc2avgthc45lpx","bandwidth":{"download":166750000,"upload":321125000},"handshake":{"enable":false,"peers":8},"interval_set_sessions":1
@@ -93,24 +94,33 @@ A112B175915CD8FAF43A2DA8E4790EDE12566649D0C2F97716B8518,4160000udvpn",
         '''
         for a,d in nodesStatus.items():
             try: 
-                if json.loads(d)['success']:
+                data = json.loads(d)
+                if data['success']:
                     result = json.loads(d)['result']
-                    address        = result['address'] # VARCHAR(100)
-                    bandwidth_down = int(result['bandwidth']['download']) # BIGINT
-                    bandwidth_up   = int(result['bandwidth']['upload']) # BIGINT
-                    handshake      = result['handshake']['enable'] # Boolean
+                    address        = result['addr'] # VARCHAR(100)
+                    bandwidth_down = int(result['downlink']) # BIGINT
+                    bandwidth_up   = int(result['uplink']) # BIGINT
+                    handshake      = result['handshake_dns'] # Boolean
                     city           = result['location']['city'] # VARCHAR(100)
                     country        = result['location']['country'] #VARCHAR(100)
                     latitude       = float(result['location']['latitude']) #DECIMAL(7,4)
                     longitude      = float(result['location']['longitude']) #DECIMAL(7,4)
                     moniker        = result['moniker'] # VARCHAR(200)
-                    wallet         = result['operator'] #VARCHAR(100)
+                    #wallet         = result['operator'] #VARCHAR(100)
+                    wallet         = " " #VARCHAR(100)
                     peers          = int(result['peers']) #SMALLINT
-                    gb_prices      = result['gigabyte_prices'] #VARCHAR(2000)
-                    hr_prices      = result['hourly_prices'] #VARCHAR(2000)
-                    max_peers      = int(result['qos']['max_peers']) #SMALLINT
-                    node_type      = int(result['type']) #SMALLINT
-                    node_version   = result['version'] #VARCHAR(20)
+                    gb_prices      = data['gigabyte_prices'] #VARCHAR(2000)
+                    hr_prices      = data['hourly_prices'] #VARCHAR(2000)
+                    #max_peers      = int(result['qos']['max_peers']) #SMALLINT
+                    max_peers      = 250 #SMALLINT
+#                    node_type      = result['service_type'] #SMALLINT
+                    if result['service_type'] == "wireguard":
+                        node_type = 1
+                    elif result['service_type'] == "v2ray":
+                        node_type = 2
+                    else:
+                        node_type = 3
+                    node_version   = result['version']['tag'] #VARCHAR(20)  
                     
                     if "ncosmic" in gb_prices or "ncosmic" in hr_prices:
                         continue
