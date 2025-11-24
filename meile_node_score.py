@@ -34,14 +34,6 @@ class UpdateNodeScoreAPI():
     
         return db
     
-    def appendNodeScoreTable(self,db):
-        iquery = "INSERT IGNORE INTO node_score (node_address) SELECT node_address FROM node_cities;"
-        
-        c = db.cursor()
-        c.execute(iquery)
-        db.commit()
-        
-    
     def getNodeScoreTable(self,db):
         query = "SELECT * FROM node_score"
         
@@ -96,10 +88,10 @@ class UpdateNodeScoreAPI():
 
     def getRemoteURL(self, n):
         NodeDict = {'node_address' : None, 'ip' : None}
-        endpoint = API + '/sentinel/nodes/' + n['node_address']
+        endpoint = API + 'sentinel/node/v3/nodes/' + n['node_address']
         try:
             r = requests.get(endpoint)
-            ip = r.json()['node']['remote_url'].split('//')[-1].split(':')[0]
+            ip = r.json()['node']['remote_addrs'][0].split('//')[-1].split(':')[0]
             NodeDict['node_address'] = n['node_address']
             NodeDict['ip'] = ip
         except: 
@@ -180,12 +172,11 @@ if __name__ == "__main__":
     db = NodeScores.connDB()
     
     start = timer()
-    NodeScores.appendNodeScoreTable(db)
     table = NodeScores.getNodeScoreTable(db)
     end = timer()
     
     time1 = round((end-start),4)
-    print("It took %ss to append Node Score Table" % time1)
+    print("It took %ss to get Node Score Table" % time1)
     
     start = timer()
     new_table = NodeScores.parseNodeScoreTable(db, table)

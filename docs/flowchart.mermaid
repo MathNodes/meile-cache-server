@@ -1,0 +1,85 @@
+graph TD
+    %% Subgraph for Node Score related components
+    subgraph "Node Score & Uptime"
+        meile_intelligence_py["meile_intelligence.py"]
+        meile_node_score_py["meile_node_score.py"]
+        meile_node_uptime_py["meile_node_uptime.py"]
+        meile_online_nodes_py["meile_online_nodes.py"]
+        remove_dupe_resis_py["remove_dupe_resis.py"]
+        update_node_score_from_online_nodes_sql["update_node_score_from_online_nodes.sql"]
+
+        node_score_tbl["node_score"]
+        node_uptime_tbl["node_uptime"]
+        online_nodes_tbl["online_nodes"]
+
+        meile_online_nodes_py --> online_nodes_tbl
+        online_nodes_tbl --> update_node_score_from_online_nodes_sql
+        update_node_score_from_online_nodes_sql --> node_score_tbl
+        meile_intelligence_py <--> node_score_tbl
+        meile_intelligence_py <--> node_uptime_tbl
+        meile_node_score_py <--> node_score_tbl
+        node_uptime_tbl --> meile_node_score_py
+        meile_node_uptime_py <--> node_uptime_tbl
+        remove_dupe_resis_py <--> node_score_tbl
+    end
+
+    %% Subgraph for Subscription related components
+    subgraph "Subscriptions"
+        get_subscriptions_py["get_subscriptions.py"]
+        get_subscription_quotas_py["get_subscription_quotas.py"]
+        
+        subscriptions_tbl["subscriptions"]
+        subscription_quotas_tbl["subscription_quotas"]  %% Assumed table
+
+        get_subscriptions_py --> subscriptions_tbl
+        subscriptions_tbl --> get_subscription_quotas_py
+        get_subscription_quotas_py --> subscription_quotas_tbl
+    end
+
+    %% Subgraph for GeoIP related components
+    subgraph "GeoIP"
+        meile_node_geoip_py["meile_node_geoip.py"]
+        meile_geoip_py["meile_geoip.py"]
+        HotWallet_py["HotWallet.py"]
+
+        node_geoip_tbl["node_geoip"]
+        meileping_tbl["meileping"]
+        meile_geoip_tbl["meile_geoip"]
+
+        meile_node_geoip_py <--> node_geoip_tbl
+        meile_geoip_py <--> meileping_tbl
+        meile_geoip_py --> meile_geoip_tbl
+        HotWallet_py <--> meileping_tbl
+    end
+
+    %% Subgraph for Health Check components
+    subgraph "Health Check"
+        sentinel_health_check_py["sentinel_health_check.py"]
+        health_check_tbl["health_check"]
+
+        sentinel_health_check_py --> health_check_tbl
+    end
+
+    %% Subgraph for Plan related components
+    subgraph "Plans"
+        sentinel_plan_info_py["sentinel_plan_info.py"]
+        sentinel_plans_py["sentinel_plans.py"]
+        plan_wizardy_py["plan_wizardy.py"]
+
+        Plans_tbl["Plans"]
+        plan_info_tbl["plan_info"]
+        plan_wizard_tbl["plan_wizard"]
+
+        sentinel_plans_py --> Plans_tbl
+        Plans_tbl --> sentinel_plan_info_py
+        sentinel_plan_info_py --> plan_info_tbl
+        plan_wizardy_py --> plan_wizard_tbl
+    end
+
+    %% Subgraph for Exit IP components
+    subgraph "Exit IP"
+        busur_exitip_py["busur_exitip.py"]
+        exitip_tbl["exitip"]
+
+        busur_exitip_py --> exitip_tbl
+    end

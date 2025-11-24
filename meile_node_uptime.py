@@ -74,14 +74,14 @@ class UpdateNodeUptime():
             #print(result)
             connection.close()
             if not result[0]:
-                endpoint = APIURL + '/sentinel/nodes/' + address
+                endpoint = APIURL + '/sentinel/node/v3/nodes/' + address
                 remote_url = ''
                 print(f"Getting remote_url of: {address}")
                 sys.stdout.flush()
                 
                 try:
                     r = requests.get(endpoint)
-                    remote_url = r.json()['node']['remote_url']
+                    remote_url = r.json()['node']['remote_addrs'][0]
                 except Exception as e:
                     print(str(e))
                     return n['node_address'], None

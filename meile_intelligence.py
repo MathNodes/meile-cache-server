@@ -165,7 +165,7 @@ class UpdateNodeType():
         return False
     
     def api_rurl_multithread(self, NodeData):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
             # Submit tasks in batches of 3
             futures = [executor.submit(self.__api_url_worker, node['node_address']) for node in NodeData]
 
@@ -188,11 +188,11 @@ class UpdateNodeType():
                     print("An error occurred:", str(e))
             
     def __api_url_worker(self, address):
-        endpoint = APIURL + '/sentinel/nodes/' + address
+        endpoint = APIURL + '/sentinel/node/v3/nodes/' + address
         
         try: 
             r = requests.get(endpoint)
-            api_rurl = r.json()['node']['remote_url']
+            api_rurl = r.json()['node']['remote_addrs'][0]
         except Exception as e:
             print(f"API URL WORKER ERROR: {str(e)}")
             api_rurl = ""
