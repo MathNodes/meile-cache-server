@@ -1,0 +1,16 @@
+CREATE TABLE `subscriptions` (
+  `id` bigint unsigned NOT NULL,
+  `owner` varchar(75) DEFAULT NULL,
+  `node` varchar(100) DEFAULT NULL,
+  `price` bigint DEFAULT NULL,
+  `deposit` bigint DEFAULT NULL,
+  `denomination` varchar(150) DEFAULT NULL,
+  `sub_date` timestamp NOT NULL,
+  `inactive_date` timestamp NULL DEFAULT NULL,
+  `type` varchar(10) DEFAULT NULL,
+  `gigabytes` decimal(10,3) DEFAULT NULL,
+  `hours` decimal(10,3) DEFAULT NULL,
+  `plan_id` mediumint DEFAULT NULL,
+  `policy` varchar(100) DEFAULT NULL,
+  `base_value` decimal(18,18) DEFAULT NULL,
+  PRIMARY KEY (`id`,`sub_date`)
