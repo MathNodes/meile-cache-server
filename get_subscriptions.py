@@ -8,16 +8,16 @@ import os
 import configparser
 from time import sleep
 
-VERSION   = "2.0"
+VERSION   = "3.0"
 STARTPAGE = 1
-FIRSTKEY  = "AAAAAAADNfs="
-delta     = 100
+FIRSTKEY  = "AAAAAAAPnos="
+delta     = 314
 BASEDIR   = os.path.join(os.path.expanduser('~'), '.meile-cache')
 CONFFILE  = os.path.join(BASEDIR,'config.ini')
 CONFIG    = configparser.ConfigParser()
 
 API = "https://api.sentinel.mathnodes.com/"
-ENDPOINT = "sentinel/subscriptions?pagination.key=%s&pagination.limit=1000"
+ENDPOINT = "sentinel/subscription/v3/subscriptions?pagination.key=%s&pagination.limit=1000"
 
 SUBTYPES = {'node' : '/sentinel.subscription.v2.NodeSubscription', 'plan' : '/sentinel.subscription.v2.PlanSubscription'}
 
@@ -55,7 +55,10 @@ def GetSubscriptionAndPopulateDB(db):
     page_range = list(range(STARTPAGE,STARTPAGE+delta))
     k = 0
     while k < len(page_range):
-        APIURL = API + ENDPOINT % NEXTKEY[-1] 
+        if k == 0:
+            APIURL = "https://api.sentinel.mathnodes.com/sentinel/subscription/v3/subscriptions?pagination.limit=1000"
+        else:
+            APIURL = API + ENDPOINT % NEXTKEY[-1] 
         print("Getting page: %s" % page_range[k])
         try: 
             r = requests.get(APIURL, timeout=60)
@@ -68,26 +71,18 @@ def GetSubscriptionAndPopulateDB(db):
             if subJSON['subscriptions']:
                 for sub in subJSON['subscriptions']:
                     try: 
-                        subtype    = sub['@type']
-                        ID         = sub['base']['id']
-                        subscriber = sub['base']['address']
-                        inactive   = sub['base']['inactive_at']
-                        sub_date   = sub['base']['status_at']
-                        
-                        for key,value in SUBTYPES.items():
-                            if value in subtype:
-                                subtype = key
-                        
-                        if subtype == "plan":
-                            plan_id = sub['plan_id']
-                            denom   = sub['denom']
-                        else:
-                            node       = sub['node_address']
-                            gb         = sub['gigabytes']
-                            hours      = sub['hours']
-                            denom      = sub['deposit']['denom']
-                            deposit    = sub['deposit']['amount']
-                            
+                        #subtype    = sub['@type']
+                        ID         = int(sub['id'])
+                        subscriber = sub['acc_address']
+                        plan_id    = int(sub['plan_id'])
+                        denom      = sub['price']['denom']
+                        base_value = float(sub['price']['base_value'])
+                        quote_value = int(sub['price']['quote_value'])
+                        policy     = sub['renewal_price_policy']
+                        status     = sub['status']
+                        inactive   = sub['inactive_at']
+                        sub_date   = sub['start_at']
+
                     except Exception as e:
                         print(str(e))
                         continue
@@ -95,18 +90,14 @@ def GetSubscriptionAndPopulateDB(db):
                     
                     
                     #print("%s,%s,%s,%s,%s" % (ID,subscriber,node,price,sub_date))
-                    if subtype == "node":
-                        iquery = '''
-                        INSERT IGNORE INTO subscriptions (id,owner,node,deposit,denomination,sub_date, inactive_date,type,gigabytes,hours)
-                        VALUES
-                        (%d,"%s","%s",%d,"%s","%s","%s","%s",%.3f,%.3f)
-                        ''' % (int(ID),subscriber,node,int(deposit),denom,sub_date,inactive,subtype,float(gb),float(hours))
-                    else:
-                        iquery = '''
-                        INSERT IGNORE INTO subscriptions (id,owner,denomination,sub_date,inactive_date,type,plan_id)
-                        VALUES
-                        (%d,"%s","%s","%s","%s","%s",%d)
-                        ''' % (int(ID),subscriber,denom,sub_date,inactive,subtype,int(plan_id))
+                    
+                    iquery = '''
+                    INSERT IGNORE INTO subscriptions (id,owner,deposit,denomination,sub_date, inactive_date,type,plan_id,policy,base_value)
+                    VALUES
+                    (%d,"%s",%d,"%s","%s","%s","plan",%d,"%s",%.18f)
+                    ''' % (ID,subscriber,quote_value,denom,sub_date,inactive,plan_id,policy,base_value)
+                    
+                   
                     print(iquery)
                     InsertIntoSubTable(iquery,db)
                 k += 1
@@ -114,6 +105,7 @@ def GetSubscriptionAndPopulateDB(db):
                     NEXTKEY.append(subJSON['pagination']['next_key'])
                     if NEXTKEY[-1] == "null":
                         WriteConfig(CONFIG, CONFFILE, NEXTKEY)
+                        break
                     
                 except Exception as e:
                     print(str(e))
