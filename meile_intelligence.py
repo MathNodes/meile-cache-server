@@ -13,7 +13,7 @@ from dbutils.pooled_db import PooledDB
 
 APIKEYS = scrtsxx.IP_REGISTRY_API_KEYS
 
-VERSION = 20250813.0056
+VERSION = 20260317.1753
 APIURL = 'https://api.sentinel.mathnodes.com'
 
 IPREGISTRY_URL = "https://api.ipregistry.co/%s?key=%s"
@@ -52,7 +52,7 @@ class UpdateNodeType():
         
         return c.fetchall()
     
-    
+    '''
     def get_ip_of_node(self, db, NodeData):
         NodeDBIP = {}
         NodeIP = {}
@@ -144,13 +144,163 @@ class UpdateNodeType():
             
         return NodeIP, NodeIPURLChanged
 
-
+    '''
+    
+    def _resolve_remote_url(self, remote_url_raw):
+        """Extract host from a remote_url and resolve to an
+        ipaddress object.  Handles IPv4, IPv6 (bracketed), and
+        hostnames.  Returns an ipaddress object or raises
+        ValueError/socket.gaierror on failure."""
+    
+        # Strip scheme
+        host_part = remote_url_raw.split('//')[-1]
+    
+        # Handle bracketed IPv6, e.g. [2001:db8::1]:8585
+        if host_part.startswith('['):
+            # Extract everything between [ and ]
+            bracket_end = host_part.index(']')
+            host = host_part[1:bracket_end]
+        else:
+            # IPv4 or hostname — split on the last colon only if
+            # it looks like a port separator (i.e. not an IPv6 literal
+            # without brackets, which would be unusual in a URL)
+            host = host_part.rsplit(':', 1)[0]
+    
+        # Try parsing as a literal IP first (v4 or v6)
+        try:
+            return ipaddress.ip_address(host)
+        except ValueError:
+            pass
+    
+        # It's a hostname — resolve it, preferring IPv4 but
+        # falling back to IPv6
+        results = socket.getaddrinfo(
+            host, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+        )
+        if not results:
+            raise socket.gaierror(
+                f"Could not resolve hostname: {host}"
+            )
+    
+        # Prefer IPv4 if available, otherwise take the first result
+        for family, _, _, _, sockaddr in results:
+            if family == socket.AF_INET:
+                return ipaddress.ip_address(sockaddr[0])
+        # Fallback to first (likely IPv6)
+        return ipaddress.ip_address(results[0][4][0])
+    
+    def get_ip_of_node(self, db, NodeData):
+        NodeDBIP = {}
+        NodeIP = {}
+        NodeIPURLChanged = {}
+    
+        c = db.cursor()
+    
+        self.api_rurl_multithread(NodeData)
+    
+        for n in NodeData:
+            address = n['node_address']
+            last_checked = n.get('last_checked', None)
+    
+            query = (
+                f"SELECT remote_url FROM node_uptime "
+                f"WHERE node_address = '{address}';"
+            )
+            query2 = (
+                f"SELECT exitIp FROM exitip "
+                f"WHERE addr = '{address}';"
+            )
+            c.execute(query)
+            result = c.fetchone()
+            c.execute(query2)
+            exitresult = c.fetchone()
+    
+            try:
+                db_rurl = result['remote_url']
+            except:
+                db_rurl = ""
+    
+            NodeDBIP[address] = db_rurl
+    
+            try:
+                if NodeDBIP[address] != self.NodeAPIurl[address]:
+                    self.__UpdateUptimeTable(
+                        db, address, self.NodeAPIurl[address]
+                    )
+                    try:
+                        rurlip = self._resolve_remote_url(
+                            self.NodeAPIurl[address]
+                        )
+                    except (ValueError, socket.gaierror):
+                        continue
+    
+                    exit_ip = None
+                    try:
+                        if exitresult and exitresult['exitIp']:
+                            exit_ip = ipaddress.ip_address(
+                                exitresult['exitIp']
+                            )
+                    except (ValueError, KeyError):
+                        pass
+    
+                    ip_mismatch = (
+                        exit_ip is not None and rurlip != exit_ip
+                    )
+    
+                    if ip_mismatch:
+                        print(f"{rurlip},{exit_ip}")
+                        chosen_ip = exit_ip
+                    else:
+                        chosen_ip = rurlip
+    
+                    if ip_mismatch or self._needs_check(last_checked):
+                        NodeIPURLChanged[address] = chosen_ip
+    
+                else:
+                    try:
+                        rurlip = self._resolve_remote_url(
+                            NodeDBIP[address]
+                        )
+                    except (ValueError, socket.gaierror):
+                        continue
+    
+                    exit_ip = None
+                    try:
+                        if exitresult and exitresult['exitIp']:
+                            exit_ip = ipaddress.ip_address(
+                                exitresult['exitIp']
+                            )
+                    except (ValueError, KeyError):
+                        pass
+    
+                    ip_mismatch = (
+                        exit_ip is not None and rurlip != exit_ip
+                    )
+    
+                    if ip_mismatch:
+                        print(f"{rurlip},{exit_ip}")
+                        chosen_ip = exit_ip
+                    else:
+                        chosen_ip = rurlip
+    
+                    if ip_mismatch or self._needs_check(last_checked):
+                        NodeIP[address] = chosen_ip
+    
+            except Exception as e:
+                print(f"{n}:{str(e)}")
+                continue
+    
+        return NodeIP, NodeIPURLChanged
+    
     def check_asn_null(self, db, node_address):
         connection = self.db_pool.connection()
         cursor     = connection.cursor()
-        
-        query = f"SELECT asn FROM node_score WHERE node_address = '{node_address}';"
-        
+
+        query = (
+            f"SELECT asn FROM node_score "
+            f"WHERE node_address = '{node_address}';"
+        )
+
         try:
             cursor.execute(query)
             result = cursor.fetchone()
@@ -158,11 +308,12 @@ class UpdateNodeType():
         finally:
             cursor.close()
             connection.close()
-            
+
         if result and result[0] is None:
             return True
         print("RETURNING FALSE")
         return False
+
     
     def api_rurl_multithread(self, NodeData):
         with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
@@ -260,16 +411,22 @@ class UpdateNodeType():
     def __UpdateNodeTypeTable(self, db, node, ntype, asn, isp):
         with open('node_whitelist', "r") as wlFILE:
             whitelist = [line.strip() for line in wlFILE]
-            
+
         if node in whitelist:
             return
-        
+
         connection = self.db_pool.connection()
         cursor     = connection.cursor()
-        
-        query = 'UPDATE node_score SET asn = "%s", isp = "%s", isp_type = "%s" WHERE node_address = "%s";' % (asn, isp, ntype, node)
+
+        query = (
+            'UPDATE node_score '
+            'SET asn = "%s", isp = "%s", isp_type = "%s", '
+            'last_checked = NOW() '
+            'WHERE node_address = "%s";'
+            % (asn, isp, ntype, node)
+        )
         print(query)
-        try: 
+        try:
             cursor.execute(query)
             connection.commit()
         finally:
